@@ -26,21 +26,28 @@ export const SHEET2_TABS: TabConfig[] = [
 ];
 
 /**
- * Rule 5 says "Follow up Date" holds the outcome narrative - true only for the JAN 2026
- * tab. Direct inspection of every tab found the real narrative lives somewhere else in
- * 7 of 8 months: "Follow up Date" instead holds an actual follow-up call date in Feb,
- * March, April, May and August; is blank in June; and doesn't exist in July. The real
- * narrative is in "Notes" for Feb/March/April/May/June/July, and split across
- * "Product detail" + "Follow up" in August (the initial call outcome and a later
- * update, respectively - both matter, e.g. an August row's "Product detail" reads
- * "Called, Appt confirmed" while its "Follow up" reveals "Called, purchased...").
+ * Rule 5 says "Follow up Date" holds the outcome narrative - that was true for the JAN
+ * 2026 tab only when this was first built, and has already changed since: the client's
+ * team renamed that column to "Notes" mid-month (verified by re-fetching the live
+ * header - it now reads "...,Contact details ,Notes,Product detail,..." where it used
+ * to read "...,Contact details ,Follow up Date ,Product detail,..."), which silently
+ * broke outcome classification for the whole tab until this was caught by comparing
+ * against a live browser screenshot. Column NAMES here are only as stable as whoever
+ * edits the sheet - fetchParsedAppointments() now warns loudly if a tab's configured
+ * columns stop resolving, but that only catches it after the fact.
  *
- * When a new tab is added, inspect its actual data (not just its headers) before
- * assuming which column(s) hold the real outcome text - header labels have proven
- * unreliable on their own here.
+ * Direct inspection (at the time each entry below was last verified) found the real
+ * outcome narrative in "Notes" for Feb/March/April/May/June/July/January, and split
+ * across "Product detail" + "Follow up" in August (the initial call outcome and a
+ * later update, respectively - both matter, e.g. an August row's "Product detail"
+ * reads "Called, Appt confirmed" while its "Follow up" reveals "Called, purchased...").
+ *
+ * When a new tab is added, or if outcomes look wrong (e.g. everything reads "Other /
+ * Uncategorized"), inspect that tab's actual current data - not just its headers, and
+ * not just this file - before trusting which column(s) hold the real outcome text.
  */
 export const OUTCOME_SOURCE_COLUMNS: Record<string, string[]> = {
-  "1956565409": ["Follow up Date"],
+  "1956565409": ["Notes"],
   "2035635007": ["Notes"],
   "1830105006": ["Notes"],
   "291907416": ["Notes", "Notes.1"],

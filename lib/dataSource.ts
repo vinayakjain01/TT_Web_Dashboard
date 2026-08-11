@@ -1,5 +1,6 @@
 import { OUTCOME_SOURCE_COLUMNS, SHEET2_TABS } from "@/config/sheet2Tabs";
 import { parseAppointmentRow } from "@/lib/business/appointmentParser";
+import { outcomeColumnsResolve } from "@/lib/business/columns";
 import { parseLeadRow } from "@/lib/business/leadParser";
 import { matchLeadsToAppointments } from "@/lib/business/match";
 import type { LeadAppointmentMatch } from "@/lib/business/match";
@@ -36,6 +37,18 @@ export async function fetchParsedAppointments(): Promise<ParsedStoreAppointment[
     const outcomeColumns = OUTCOME_SOURCE_COLUMNS[tabConfig.gid];
     if (!outcomeColumns) {
       throw new Error(`No OUTCOME_SOURCE_COLUMNS entry for gid=${tabConfig.gid} (${tabConfig.title}).`);
+    }
+    // The sheet's own column names have already drifted once mid-project (see the
+    // comment in config/sheet2Tabs.ts) - if NONE of the configured columns resolve
+    // against this tab's current header, every row in it will silently classify as
+    // "Other / Uncategorized" instead of erroring, which is worse than a crash. Warn
+    // loudly so it gets caught quickly instead of by comparing dashboard screenshots.
+    if (!outcomeColumnsResolve(headerRow, outcomeColumns)) {
+      console.warn(
+        `[dataSource] None of OUTCOME_SOURCE_COLUMNS ${JSON.stringify(outcomeColumns)} for gid=${tabConfig.gid} ` +
+          `(${tabConfig.title}) resolve against its current header: ${JSON.stringify(headerRow)}. ` +
+          `Every appointment in this tab will classify as "Other / Uncategorized" until config/sheet2Tabs.ts is updated.`
+      );
     }
     dataRows.forEach((row, i) => {
       const parsed = parseAppointmentRow(tabConfig, outcomeColumns, headerRow, row, i + 1);

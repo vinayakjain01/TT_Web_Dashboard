@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import { OUTCOME_SOURCE_COLUMNS, SHEET2_TABS } from "@/config/sheet2Tabs";
 import { parseAppointmentRow } from "../appointmentParser";
 
+// The live sheet's JAN 2026 header was originally "...,Contact details ,Follow up
+// Date ,Product detail,..." (matching the brief's literal example) but the client's
+// team renamed that column to "Notes" mid-project - this fixture reflects the current
+// reality (two "Notes" columns: the first holds the real outcome text).
 const janHeader = [
   "SL. No", "Date of Booking", "Name", "Date of visit", "Store location", "Contact details",
-  "Follow up Date", "Product detail", "Price details", "Notes", "Visited (Yes/no)",
+  "Notes", "Product detail", "Price details", "Notes", "Visited (Yes/no)",
   "Order placed (yes/no)", "Client Reviews by store", "Style details",
 ];
 
@@ -25,7 +29,7 @@ function tab(gid: string) {
 }
 
 describe("parseAppointmentRow - per-tab column mapping", () => {
-  it("JAN 2026: reads outcome from 'Follow up Date' (the only tab where the brief's literal example holds)", () => {
+  it("JAN 2026: reads outcome from 'Notes' (the column formerly named 'Follow up Date', renamed live mid-project)", () => {
     const row = ["#1", "24 Nov", "Sanskruti Jain", "5 Jan", "Delhi", "447586800876",
       "Visted, did not like and Purchase", "", "", "", "", "", "", ""];
     const parsed = parseAppointmentRow(tab("1956565409"), OUTCOME_SOURCE_COLUMNS["1956565409"], janHeader, row, 0);

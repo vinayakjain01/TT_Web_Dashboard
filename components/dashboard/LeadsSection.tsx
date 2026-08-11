@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LeadRow } from "@/lib/types/db";
 import { BarChartCard, CHART_PALETTE } from "./BarChartCard";
+import { DateField } from "./DateField";
 import { FilterSelect } from "./FilterSelect";
 import { Pagination } from "./Pagination";
 import { Pill, type PillTone } from "./Pill";
@@ -29,6 +30,8 @@ export function LeadsSection() {
   const [status, setStatus] = useState("");
   const [country, setCountry] = useState("");
   const [source, setSource] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(0);
 
   useEffect(() => {
@@ -61,9 +64,14 @@ export function LeadsSection() {
 
   const filtered = useMemo(() => {
     return (leads ?? []).filter(
-      (l) => (!status || l.status === status) && (!country || l.country === country) && (!source || l.source === source)
+      (l) =>
+        (!status || l.status === status) &&
+        (!country || l.country === country) &&
+        (!source || l.source === source) &&
+        (!dateFrom || (l.date ?? "") >= dateFrom) &&
+        (!dateTo || (l.date ?? "") <= dateTo)
     );
-  }, [leads, status, country, source]);
+  }, [leads, status, country, source, dateFrom, dateTo]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -112,31 +120,14 @@ export function LeadsSection() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <SectionTitle>Visual analysis</SectionTitle>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <BarChartCard
-            title="Leads by Country (top 10) - total vs converted"
-            data={leadsByCountry}
-            series={[
-              { key: "total", label: "Total leads", color: CHART_PALETTE[0] },
-              { key: "converted", label: "Converted", color: CHART_PALETTE[1] },
-            ]}
-          />
-          <BarChartCard
-            title="Leads by Source"
-            data={leadsBySource}
-            series={[{ key: "count", label: "Leads", color: CHART_PALETTE[0] }]}
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4">
         <SectionTitle>Lead records</SectionTitle>
         <div
           className="rounded-[var(--radius)] px-5 py-[18px]"
           style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 3px 10px var(--shadow)" }}
         >
           <div className="mb-3.5 flex flex-wrap gap-3">
+            <DateField label="From date" value={dateFrom} onChange={(v) => updateFilter(setDateFrom, v)} />
+            <DateField label="To date" value={dateTo} onChange={(v) => updateFilter(setDateTo, v)} />
             <FilterSelect label="Status" value={status} options={statusOptions} onChange={(v) => updateFilter(setStatus, v)} />
             <FilterSelect label="Country" value={country} options={countryOptions} onChange={(v) => updateFilter(setCountry, v)} />
             <FilterSelect label="Source" value={source} options={sourceOptions} onChange={(v) => updateFilter(setSource, v)} />
@@ -195,6 +186,25 @@ export function LeadsSection() {
             </table>
           </div>
           <Pagination page={page} pageCount={pageCount} total={filtered.length} onChange={setPage} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <SectionTitle>Visual analysis</SectionTitle>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <BarChartCard
+            title="Leads by Country (top 10) - total vs converted"
+            data={leadsByCountry}
+            series={[
+              { key: "total", label: "Total leads", color: CHART_PALETTE[0] },
+              { key: "converted", label: "Converted", color: CHART_PALETTE[1] },
+            ]}
+          />
+          <BarChartCard
+            title="Leads by Source"
+            data={leadsBySource}
+            series={[{ key: "count", label: "Leads", color: CHART_PALETTE[0] }]}
+          />
         </div>
       </div>
     </div>

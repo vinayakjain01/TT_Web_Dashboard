@@ -41,3 +41,14 @@ export function cell(row: string[], index: number | null): string {
 export function isRowBlank(row: string[]): boolean {
   return row.every((c) => !c || !c.trim());
 }
+
+/**
+ * True if at least one configured outcome-source label still exists in this tab's
+ * current header. False means the sheet's columns have drifted since the config was
+ * last verified (a renamed/removed column) - every row would silently classify as
+ * "Other / Uncategorized" rather than erroring, so callers should warn loudly instead
+ * of trusting the result.
+ */
+export function outcomeColumnsResolve(headerRow: string[], outcomeColumns: string[]): boolean {
+  return outcomeColumns.some((label) => resolveColumnIndex(headerRow, label) !== null);
+}
