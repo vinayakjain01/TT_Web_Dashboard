@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { DataSourceTag } from "@/components/dashboard/DataSourceTag";
 import { SheetLinks } from "@/components/dashboard/SheetLinks";
@@ -27,7 +28,12 @@ export default function Home() {
           <SheetLinks />
         </div>
       </header>
-      <DashboardTabs />
+      {/* DashboardTabs' sections read/write filter state via useSearchParams, which
+          requires a Suspense boundary so the static page shell can render immediately
+          while the URL-dependent parts hydrate. */}
+      <Suspense fallback={<p className="text-sm" style={{ color: "var(--text-secondary)" }}>Loading dashboard...</p>}>
+        <DashboardTabs />
+      </Suspense>
     </main>
   );
 }

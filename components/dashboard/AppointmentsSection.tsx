@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { APPOINTMENT_FILTER_KEYS } from "@/lib/filters/appointmentFilters";
+import { useFetchJson } from "@/lib/hooks/useFetchJson";
 import type { StoreAppointmentRow } from "@/lib/types/db";
 import { BarChartCard, CHART_PALETTE } from "./BarChartCard";
 import { DateField } from "./DateField";
@@ -12,22 +15,6 @@ import { StatTile } from "./StatTile";
 
 const PAGE_SIZE = 50;
 
-function distinct(values: string[]): string[] {
-  return Array.from(new Set(values.filter((v) => v.trim()))).sort();
-}
-
-function isYes(flag: string): boolean {
-  return /^y/i.test(flag.trim());
-}
-
-function isVisited(a: StoreAppointmentRow): boolean {
-  return a.visit_outcome === "Purchased" || a.visit_outcome === "Visited, No Purchase" || isYes(a.visited_flag_raw);
-}
-
-function isPurchased(a: StoreAppointmentRow): boolean {
-  return a.visit_outcome === "Purchased" || isYes(a.order_placed_flag_raw);
-}
-
 function outcomeTone(outcome: string): PillTone {
   if (outcome === "Purchased") return "good";
   if (outcome === "Not Reached / No Visit") return "bad";
@@ -35,79 +22,69 @@ function outcomeTone(outcome: string): PillTone {
   return "neutral";
 }
 
+interface AppointmentSummary {
+  total: number;
+  purchased: number;
+  visitRate: number;
+}
+
+interface AppointmentCharts {
+  byCity: { name: string; appointments: number; purchases: number }[];
+}
+
+interface AppointmentOptions {
+  cities: string[];
+  outcomes: string[];
+}
+
 export function AppointmentsSection() {
-  const [appointments, setAppointments] = useState<StoreAppointmentRow[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [city, setCity] = useState("");
-  const [outcome, setOutcome] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [page, setPage] = useState(0);
 
-  useEffect(() => {
-    fetch("/api/appointments")
-      .then((res) => {
-        if (!res.ok) throw new Error(`API returned ${res.status}`);
-        return res.json();
-      })
-      .then((data) => setAppointments(data.appointments))
-      .catch((err) => setError(String(err)));
-  }, []);
+  const city = searchParams.get(APPOINTMENT_FILTER_KEYS.city) ?? "";
+  const outcome = searchParams.get(APPOINTMENT_FILTER_KEYS.outcome) ?? "";
+  const dateFrom = searchParams.get(APPOINTMENT_FILTER_KEYS.from) ?? "";
+  const dateTo = searchParams.get(APPOINTMENT_FILTER_KEYS.to) ?? "";
+  // Full current query string (including the Lead Funnel section's own params, which
+  // coexist in the same URL) forwarded verbatim to every endpoint below - see
+  // LeadsSection for why that's the mechanism that keeps them all in sync.
+  const queryString = searchParams.toString();
 
-  const kpis = useMemo(() => {
-    const list = appointments ?? [];
-    const total = list.length;
-    const purchased = list.filter(isPurchased).length;
-    const visited = list.filter(isVisited).length;
-    return { total, purchased, visitRate: total ? ((visited / total) * 100).toFixed(1) : "0.0" };
-  }, [appointments]);
-
-  const cityOptions = useMemo(() => distinct((appointments ?? []).map((a) => a.city)), [appointments]);
-  const outcomeOptions = useMemo(() => distinct((appointments ?? []).map((a) => a.visit_outcome)), [appointments]);
-
-  const filtered = useMemo(() => {
-    return (appointments ?? []).filter(
-      (a) =>
-        (!city || a.city === city) &&
-        (!outcome || a.visit_outcome === outcome) &&
-        (!dateFrom || (a.date_of_visit ?? "") >= dateFrom) &&
-        (!dateTo || (a.date_of_visit ?? "") <= dateTo)
-    );
-  }, [appointments, city, outcome, dateFrom, dateTo]);
-
-  function updateFilter(setter: (value: string) => void, value: string) {
-    setter(value);
+  function setFilter(key: string, value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
     setPage(0);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
-  const byCity = useMemo(() => {
-    const map = new Map<string, { appointments: number; purchases: number }>();
-    for (const a of appointments ?? []) {
-      const key = a.city.trim() || "Unknown";
-      const entry = map.get(key) ?? { appointments: 0, purchases: 0 };
-      entry.appointments += 1;
-      if (isPurchased(a)) entry.purchases += 1;
-      map.set(key, entry);
-    }
-    return Array.from(map.entries())
-      .sort((a, b) => b[1].appointments - a[1].appointments)
-      .map(([name, v]) => ({ name, appointments: v.appointments, purchases: v.purchases }));
-  }, [appointments]);
+  const { data: tableData, error: tableError } = useFetchJson<{ appointments: StoreAppointmentRow[] }>(
+    `/api/appointments?${queryString}`
+  );
+  const { data: summary, error: summaryError } = useFetchJson<AppointmentSummary>(`/api/appointments/summary?${queryString}`);
+  const { data: charts, error: chartsError } = useFetchJson<AppointmentCharts>(`/api/appointments/charts?${queryString}`);
+  const { data: options } = useFetchJson<AppointmentOptions>("/api/appointments/options"); // never filtered
+
+  const appointments = tableData?.appointments ?? null;
+  const error = tableError ?? summaryError ?? chartsError;
 
   if (error) return <p className="text-sm" style={{ color: "var(--coral)" }}>Failed to load appointments: {error}</p>;
-  if (!appointments)
+  if (!appointments || !summary || !charts) {
     return (
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
         Loading appointments...
       </p>
     );
+  }
 
   return (
     <div className="flex flex-col gap-8">
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
-        <StatTile label="Total Appointments" value={kpis.total.toLocaleString()} accent="var(--primary)" />
-        <StatTile label="Purchased" value={kpis.purchased.toLocaleString()} accent="var(--teal)" />
-        <StatTile label="Visit Rate" value={`${kpis.visitRate}%`} sublabel="visited / booked" accent="var(--gold)" />
+        <StatTile label="Total Appointments" value={summary.total.toLocaleString()} accent="var(--primary)" />
+        <StatTile label="Purchased" value={summary.purchased.toLocaleString()} accent="var(--teal)" />
+        <StatTile label="Visit Rate" value={`${summary.visitRate}%`} sublabel="visited / booked" accent="var(--gold)" />
       </div>
 
       <div className="flex flex-col gap-4">
@@ -117,10 +94,20 @@ export function AppointmentsSection() {
           style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 3px 10px var(--shadow)" }}
         >
           <div className="mb-3.5 flex flex-wrap gap-3">
-            <DateField label="Visit from" value={dateFrom} onChange={(v) => updateFilter(setDateFrom, v)} />
-            <DateField label="Visit to" value={dateTo} onChange={(v) => updateFilter(setDateTo, v)} />
-            <FilterSelect label="City" value={city} options={cityOptions} onChange={(v) => updateFilter(setCity, v)} />
-            <FilterSelect label="Outcome" value={outcome} options={outcomeOptions} onChange={(v) => updateFilter(setOutcome, v)} />
+            <DateField label="Visit from" value={dateFrom} onChange={(v) => setFilter(APPOINTMENT_FILTER_KEYS.from, v)} />
+            <DateField label="Visit to" value={dateTo} onChange={(v) => setFilter(APPOINTMENT_FILTER_KEYS.to, v)} />
+            <FilterSelect
+              label="City"
+              value={city}
+              options={options?.cities ?? []}
+              onChange={(v) => setFilter(APPOINTMENT_FILTER_KEYS.city, v)}
+            />
+            <FilterSelect
+              label="Outcome"
+              value={outcome}
+              options={options?.outcomes ?? []}
+              onChange={(v) => setFilter(APPOINTMENT_FILTER_KEYS.outcome, v)}
+            />
           </div>
 
           <div className="max-h-[480px] overflow-auto rounded-[10px]" style={{ border: "1px solid var(--border)" }}>
@@ -139,7 +126,7 @@ export function AppointmentsSection() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE).map((a) => (
+                {appointments.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE).map((a) => (
                   <tr key={a.id} className="even:bg-[var(--surface-alt)] hover:bg-[var(--gold-light)]">
                     <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
                       {a.date_of_booking ?? a.date_of_booking_raw}
@@ -190,8 +177,8 @@ export function AppointmentsSection() {
           </div>
           <Pagination
             page={page}
-            pageCount={Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))}
-            total={filtered.length}
+            pageCount={Math.max(1, Math.ceil(appointments.length / PAGE_SIZE))}
+            total={appointments.length}
             onChange={setPage}
           />
         </div>
@@ -201,7 +188,7 @@ export function AppointmentsSection() {
         <SectionTitle>Visual analysis</SectionTitle>
         <BarChartCard
           title="Appointments and purchases by city"
-          data={byCity}
+          data={charts.byCity}
           series={[
             { key: "appointments", label: "Appointments", color: CHART_PALETTE[0] },
             { key: "purchases", label: "Purchases", color: CHART_PALETTE[1] },
