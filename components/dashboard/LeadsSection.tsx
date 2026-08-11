@@ -89,7 +89,7 @@ export function LeadsSection() {
   return (
     <div className="flex flex-col gap-8">
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-        <StatTile label="Total Leads" value={summary.total.toLocaleString()} sublabel="excludes test records" accent="var(--primary)" />
+        <StatTile label="Total Leads" value={summary.total.toLocaleString()} accent="var(--primary)" />
         <StatTile label="Converted Leads" value={summary.converted.toLocaleString()} accent="var(--teal)" />
         <StatTile label="Conversion Rate" value={`${summary.conversionRate}%`} accent="var(--gold)" />
         <StatTile label="Store Appointments Booked" value={summary.storeAppointments.toLocaleString()} accent="var(--primary-light)" />
@@ -147,11 +147,6 @@ export function LeadsSection() {
                     </td>
                     <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
                       {l.customer_name || "-"}
-                      {l.is_test_record && (
-                        <span className="ml-2">
-                          <Pill tone="warn">test</Pill>
-                        </span>
-                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
                       {l.source || "-"}

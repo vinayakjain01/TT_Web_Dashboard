@@ -155,10 +155,16 @@ original brief:
   January tab) still gets the normal prior-year retry regardless of the visit's year -
   that's the exact ambiguity the retry exists to resolve, not a case to restrict.
 - **Lead funnel scoped to 2025-2026** at the reporting layer, not by touching ingestion:
-  `v_leads_recent` / `v_real_leads_recent` (`supabase/migrations/0002_*.sql`) filter by
-  year on top of the complete `leads` table, so every year keeps being synced and the
-  scope can change later without re-running anything. The no-Supabase fallback mirrors
-  this via `lib/business/reportingScope.ts` so both paths show the same rows.
+  `v_leads_recent` (`supabase/migrations/0002_*.sql`) filters by year on top of the
+  complete `leads` table, so every year keeps being synced and the scope can change
+  later without re-running anything. The no-Supabase fallback mirrors this via
+  `lib/business/reportingScope.ts` so both paths show the same rows.
+- **"Test NNN" placeholder leads count as regular leads everywhere** - the detail table,
+  every KPI, and every chart. `is_test_record` (`lib/business/testRecord.ts`) still gets
+  computed and stored at sync time for anyone auditing the raw data later, but nothing
+  in the dashboard reads it to exclude or flag a row anymore; `v_real_leads` /
+  `v_real_leads_recent` (`supabase/migrations/000{1,2}_*.sql`) are unused by the app as
+  of this change and are candidates for a future cleanup migration.
 
 ## Commands
 

@@ -44,8 +44,9 @@ function buildCharts(rows: ChartableLead[]) {
 
 /**
  * Chart data for the Lead Funnel section - same source view and same filters as
- * summary/route.ts and the table route. Both charts are computed from one filtered
- * fetch rather than two separate round trips, since they're grouping the same rows.
+ * summary/route.ts and the table route (v_leads_recent, every lead including former
+ * "test" placeholder rows). Both charts are computed from one filtered fetch rather
+ * than two separate round trips, since they're grouping the same rows.
  */
 export async function GET(request: Request) {
   const filters = parseLeadFilterParams(new URL(request.url).searchParams);
@@ -53,19 +54,14 @@ export async function GET(request: Request) {
   if (isSupabaseConfigured()) {
     const supabase = createServerSupabaseClient();
     const rows = await fetchAllRows<ChartableLead>((from, to) =>
-      applyLeadFiltersToQuery(supabase.from("v_real_leads_recent").select("country, source, is_converted"), filters).range(
-        from,
-        to
-      )
+      applyLeadFiltersToQuery(supabase.from("v_leads_recent").select("country, source, is_converted"), filters).range(from, to)
     );
     return NextResponse.json(buildCharts(rows));
   }
 
   const parsed = await fetchParsedLeads();
   const syncedAt = new Date().toISOString();
-  const scoped = parsed
-    .filter((l) => isInLeadReportingScope(l.date) && !l.isTestRecord)
-    .map((l, i) => leadToRow(l, i + 1, syncedAt));
+  const scoped = parsed.filter((l) => isInLeadReportingScope(l.date)).map((l, i) => leadToRow(l, i + 1, syncedAt));
   const filtered = filterLeadRows(scoped, filters);
   return NextResponse.json(buildCharts(filtered));
 }

@@ -27,10 +27,12 @@ function summarize(rows: SummarizableLead[]) {
 }
 
 /**
- * KPI cards for the Lead Funnel section. Reads from v_real_leads_recent (2025-2026,
- * test records excluded) with the SAME filters the table and charts routes apply -
- * this route existing separately from the table route is exactly the piece that was
- * previously missing, which is why the KPI cards never moved when a slicer changed.
+ * KPI cards for the Lead Funnel section. Reads from v_leads_recent (2025-2026, every
+ * lead including former "test" placeholder rows - those count as regular leads now,
+ * same as any other row in the table) with the SAME filters the table and charts
+ * routes apply - this route existing separately from the table route is exactly the
+ * piece that was previously missing, which is why the KPI cards never moved when a
+ * slicer changed.
  */
 export async function GET(request: Request) {
   const filters = parseLeadFilterParams(new URL(request.url).searchParams);
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
     const supabase = createServerSupabaseClient();
     const rows = await fetchAllRows<SummarizableLead>((from, to) =>
       applyLeadFiltersToQuery(
-        supabase.from("v_real_leads_recent").select("is_converted, is_store_appointment"),
+        supabase.from("v_leads_recent").select("is_converted, is_store_appointment"),
         filters
       ).range(from, to)
     );
@@ -48,9 +50,7 @@ export async function GET(request: Request) {
 
   const parsed = await fetchParsedLeads();
   const syncedAt = new Date().toISOString();
-  const scoped = parsed
-    .filter((l) => isInLeadReportingScope(l.date) && !l.isTestRecord)
-    .map((l, i) => leadToRow(l, i + 1, syncedAt));
+  const scoped = parsed.filter((l) => isInLeadReportingScope(l.date)).map((l, i) => leadToRow(l, i + 1, syncedAt));
   const filtered = filterLeadRows(scoped, filters);
   return NextResponse.json(summarize(filtered));
 }
