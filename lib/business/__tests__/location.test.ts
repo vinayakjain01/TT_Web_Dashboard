@@ -36,4 +36,22 @@ describe("resolveCity (rule 4)", () => {
     expect(result.city).toBe("Somewhere New");
     expect(result.needsReview).toBe(true);
   });
+
+  it.each(["HYD", "Hyd", "hyd"])("%s rolls up to Hyderabad", (raw) => {
+    const result = resolveCity(raw);
+    expect(result.city).toBe("Hyderabad");
+    expect(result.needsReview).toBe(false);
+  });
+
+  it("treats a blank/missing location as Unknown and flags it for review, rather than dropping it silently", () => {
+    const result = resolveCity("");
+    expect(result.city).toBe("Unknown");
+    expect(result.needsReview).toBe(true);
+  });
+
+  it("treats a whitespace-only location the same as blank", () => {
+    const result = resolveCity("   ");
+    expect(result.city).toBe("Unknown");
+    expect(result.needsReview).toBe(true);
+  });
 });

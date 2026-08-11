@@ -147,8 +147,24 @@ export function AppointmentsSection() {
                     <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
                       {a.name || "-"}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                    <td
+                      className="whitespace-nowrap px-3 py-[9px]"
+                      style={{
+                        borderBottom: "1px solid var(--border)",
+                        color: a.visit_date_precision === "approximate" ? "var(--text-secondary)" : "var(--text)",
+                        fontStyle: a.visit_date_precision === "approximate" ? "italic" : "normal",
+                      }}
+                      title={
+                        a.visit_date_precision === "approximate"
+                          ? "Approximate - no exact day was given, defaulted to the 1st of the month"
+                          : a.visit_date_note
+                            ? `Original range: ${a.visit_date_note}`
+                            : undefined
+                      }
+                    >
+                      {a.visit_date_precision === "approximate" ? "~ " : ""}
                       {a.date_of_visit ?? a.date_of_visit_raw}
+                      {a.visit_date_note && <span style={{ color: "var(--text-muted)" }}> (range)</span>}
                     </td>
                     <td
                       className="whitespace-nowrap px-3 py-[9px]"

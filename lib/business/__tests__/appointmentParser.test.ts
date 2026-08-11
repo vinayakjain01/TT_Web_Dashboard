@@ -74,3 +74,70 @@ describe("parseAppointmentRow - per-tab column mapping", () => {
     expect(parsed?.secondaryPhoneKey).not.toBeNull();
   });
 });
+
+// Real header for the January 2025 tab (and the same shape for the other 5 tabs whose
+// outcome text lands in Product detail/Notes rather than a Follow-up-Date-style column).
+const jan2025Header = [
+  "SL. No", "Date of Booking", "Name", "Date of visit", "Store location", "Contact details",
+  "Product detail", "Price details", "Notes", "Visited (Yes/no)", "Order placed (yes/no)",
+  "Client Reviews by store", "Style details",
+];
+
+describe("parseAppointmentRow - 2025 batch (12 new tabs)", () => {
+  it("resolves a date range end to end (real January 2025 row: Priyanka Sikka)", () => {
+    const row = ["#2", "31st DEC", "Priyanka Sikka", "Jan 10-13th 2025", "DELHI", "17157719334",
+      "", "", "", "", "", "", ""];
+    const parsed = parseAppointmentRow(tab("543494584"), OUTCOME_SOURCE_COLUMNS["543494584"], jan2025Header, row, 0);
+    expect(parsed?.dateOfVisit).toBe("2025-01-10");
+    expect(parsed?.visitDateNote).toBe("Jan 10-13th 2025");
+    expect(parsed?.dateNeedsReview).toBe(false);
+  });
+
+  it("resolves a vague/approximate date end to end (real January 2025 row: Likhita Rao)", () => {
+    const row = ["#17", "9th Jan", "Likhita Rao", "March 1st week", "MUMBAI", "393337638309",
+      "", "", "", "", "", "", ""];
+    const parsed = parseAppointmentRow(tab("543494584"), OUTCOME_SOURCE_COLUMNS["543494584"], jan2025Header, row, 0);
+    expect(parsed?.dateOfVisit).toBe("2025-03-01");
+    expect(parsed?.visitDatePrecision).toBe("approximate");
+    expect(parsed?.dateNeedsReview).toBe(false);
+  });
+
+  it("resolves a time-embedded date end to end (real January 2025 row: Gitika Chanchlani)", () => {
+    const row = ["#4", "31st DEC", "Gitika Chanchlani", "2nd Jan. around 2pm", "MUMBAI", "9008448448",
+      "", "", "", "", "", "", ""];
+    const parsed = parseAppointmentRow(tab("543494584"), OUTCOME_SOURCE_COLUMNS["543494584"], jan2025Header, row, 0);
+    expect(parsed?.dateOfVisit).toBe("2025-01-02");
+  });
+
+  it("routes the Soni Virdi row to date_needs_review instead of silently accepting the explicit-but-inconsistent visit year", () => {
+    const row = ["#36", "24th Jan", "Soni Virdi", "24 February 2024", "Delhi", "447415107921",
+      "", "", "", "", "", "", ""];
+    const parsed = parseAppointmentRow(tab("543494584"), OUTCOME_SOURCE_COLUMNS["543494584"], jan2025Header, row, 0);
+    expect(parsed?.dateOfVisit).toBe("2024-02-24"); // explicit year trusted for the visit itself
+    expect(parsed?.dateNeedsReview).toBe(true);
+    expect(parsed?.dateReviewReason).toBe("visit_year_explicit_inconsistent");
+  });
+
+  it("skips a section-divider row inside a Store Appointments tab (real December 2025 row)", () => {
+    // "1st Week 1 December - 7 December 2025" sits alone in the first column; every
+    // other column - including Name, Date of Booking, Date of visit - is blank.
+    const dividerRow = ["1st Week 1 December - 7 December 2025", "", "", "", "", "", "", "", "", "", "", "", ""];
+    const parsed = parseAppointmentRow(tab("462844197"), OUTCOME_SOURCE_COLUMNS["462844197"], jan2025Header, dividerRow, 0);
+    expect(parsed).toBeNull();
+  });
+
+  it("still parses a real row from the same tab as the divider above (Mritika Easwar)", () => {
+    const decHeader = [
+      "SL. No", "Date of Booking", "Name", "Date of visit", "Store location", "Contact details",
+      "Follow up Date", "Call Follow up", "Product detail", "Price details", "Notes",
+      "Visited (Yes/no)", "Order placed (yes/no)", "Client Reviews by store", "Style details",
+    ];
+    const row = ["#1", "11 Nov", "Mritika Easwar P", "3 Dec", "Hyderabad", "98426 66799",
+      "Will visit on 5th again", "Did not purchase anything at the store", "", "", "", "", "", "", ""];
+    const parsed = parseAppointmentRow(tab("462844197"), OUTCOME_SOURCE_COLUMNS["462844197"], decHeader, row, 1);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.name).toBe("Mritika Easwar P");
+    expect(parsed?.city).toBe("Hyderabad");
+    expect(parsed?.visitOutcome).toBe("Visited, No Purchase"); // "Did not purchase anything" - negation-aware
+  });
+});

@@ -42,6 +42,8 @@ export interface StoreAppointmentRow {
   date_of_booking_raw: string;
   date_of_visit: string | null;
   date_of_visit_raw: string;
+  visit_date_note: string | null;
+  visit_date_precision: "exact" | "approximate";
   date_needs_review: boolean;
   date_review_reason: string | null;
   store_location_raw: string;

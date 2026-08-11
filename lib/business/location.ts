@@ -36,7 +36,10 @@ export interface ResolvedLocation {
 export function resolveCity(raw: string): ResolvedLocation {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return { city: "", needsReview: false };
+    // Previously silently passed through as "" with no flag - a blank location is
+    // just as unresolved as an unrecognized one, and hiding it that way meant it never
+    // reached location_needs_review at all.
+    return { city: "Unknown", needsReview: true };
   }
   const key = trimmed.toLowerCase();
   if (FORCE_REVIEW.has(key)) {

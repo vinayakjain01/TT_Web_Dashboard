@@ -16,6 +16,7 @@ function appt(overrides: Partial<ParsedStoreAppointment>): ParsedStoreAppointmen
   return {
     tabGid: "g", tabTitle: "t", sourceRowIndex: 1, slNoRaw: "", name: "",
     dateOfBookingRaw: "", dateOfBooking: null, dateOfVisitRaw: "", dateOfVisit: null,
+    visitDateNote: null, visitDatePrecision: "exact",
     dateNeedsReview: false, dateReviewReason: null, storeLocationRaw: "", city: "",
     locationNeedsReview: false, contactRaw: "", primaryPhoneRaw: null, primaryPhoneKey: null,
     secondaryPhoneRaw: null, secondaryPhoneKey: null, followUpOutcomeRaw: "",

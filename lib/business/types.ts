@@ -29,7 +29,10 @@ export type DateReviewReason =
   | "unparseable_raw_value"
   | "no_month_component"
   | "date_range_or_relative"
-  | "booking_after_visit_both_years";
+  | "booking_after_visit_both_years"
+  | "visit_year_explicit_inconsistent";
+
+export type DatePrecision = "exact" | "approximate";
 
 export interface ParsedStoreAppointment {
   tabGid: string;
@@ -41,6 +44,12 @@ export interface ParsedStoreAppointment {
   dateOfBooking: string | null;
   dateOfVisitRaw: string;
   dateOfVisit: string | null;
+  /** Full original range text ("Jan 10-13th 2025") when dateOfVisit came from a date
+   * range - the range isn't lost, it's just not what date arithmetic uses. */
+  visitDateNote: string | null;
+  /** "approximate" when dateOfVisit was defaulted from a vague, no-specific-day value
+   * like "March 1st week" - never rendered identically to a confirmed date. */
+  visitDatePrecision: DatePrecision;
   dateNeedsReview: boolean;
   dateReviewReason: DateReviewReason | null;
   storeLocationRaw: string;

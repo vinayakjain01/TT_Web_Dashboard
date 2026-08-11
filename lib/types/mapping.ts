@@ -49,6 +49,8 @@ export function appointmentToDbColumns(a: ParsedStoreAppointment) {
     date_of_booking_raw: a.dateOfBookingRaw,
     date_of_visit: a.dateOfVisit,
     date_of_visit_raw: a.dateOfVisitRaw,
+    visit_date_note: a.visitDateNote,
+    visit_date_precision: a.visitDatePrecision,
     date_needs_review: a.dateNeedsReview,
     date_review_reason: a.dateReviewReason,
     store_location_raw: a.storeLocationRaw,

@@ -92,8 +92,9 @@ spreadsheets with its email (Viewer), store its JSON key as a GitHub secret, and
 
 ### Monthly maintenance: a new tab appears in Store Appointments every month
 
-`config/sheet2Tabs.ts` hardcodes the 8 tabs currently in scope (Jan-Aug 2026) with
-their gid, title, and year/month. When the client adds a new month's tab:
+`config/sheet2Tabs.ts` hardcodes the 20 tabs currently in scope (all 12 months of 2025,
+plus Jan-Aug 2026 year-to-date) with their gid, title, and year/month. When the client
+adds a new month's tab:
 
 1. Open the Store Appointments spreadsheet, find the new tab's gid from its URL
    (`...#gid=XXXXXXXXX`).
@@ -131,10 +132,33 @@ original brief:
   the real data, at the same confidence as the given examples. `Ballard`/`Ballard
   Estate` are flagged for review exactly as the brief specifies.
 - **`date_needs_review`**: extended past the brief's year-ambiguity scenario to also
-  catch values that aren't a single resolvable calendar date at all - ranges
-  (`"10-11 June"`), bare day numbers with no month (`"1"`), and relative/placeholder
-  text (`"1 week"`, `"TBH"`) all appear in the real data and are flagged rather than
-  guessed.
+  catch values that aren't a single resolvable calendar date at all - bare day numbers
+  with no month (`"1"`), and relative/placeholder text (`"1 week"`, `"TBH"`) appear in
+  the real data and are flagged rather than guessed.
+- **Date ranges are now accepted, not flagged** (`dates.ts`): a later batch of tabs
+  turned up ranges constantly (`"7-11 jan"`, `"Jan 10-13th 2025"`, `"5/6 Dec"`, even
+  `"30 April to 11 May 2026"` spanning two months). The first date in the range is used
+  as `date_of_visit`; the full original text is preserved in `visit_date_note` rather
+  than lost, and it still goes through the normal year-inference/consistency checks.
+- **Vague "no exact day" dates** (`"March 1st week"`) default to the 1st of that month
+  and are marked `visit_date_precision = 'approximate'` - the dashboard shows these with
+  a `~` prefix and italics so they never look identical to a confirmed date.
+- **Time-of-day text mixed into date cells** (`"2nd Jan. around 2pm"`, `"2 PM 20 JAN"`,
+  `"26th Feb at 11.00 am"`) is stripped before parsing; the time is discarded, only the
+  date is kept. Fixing this also surfaced a latent bug: dates with a comma before the
+  year (`"Jan 12, 2025"`) were failing to parse at all until comma-handling was added.
+- **Booking-consistency check refined, not weakened** (`resolveBookingDate`): an
+  explicit visit year that conflicts with the tab's own year for a booking in *that same
+  tab's month* is flagged (`visit_year_explicit_inconsistent`) rather than silently
+  "fixed" by reinterpreting the booking's year too - see the Soni Virdi test case. A
+  booking in a *different* month than the tab (e.g. a `"31 Dec"` booking inside a
+  January tab) still gets the normal prior-year retry regardless of the visit's year -
+  that's the exact ambiguity the retry exists to resolve, not a case to restrict.
+- **Lead funnel scoped to 2025-2026** at the reporting layer, not by touching ingestion:
+  `v_leads_recent` / `v_real_leads_recent` (`supabase/migrations/0002_*.sql`) filter by
+  year on top of the complete `leads` table, so every year keeps being synced and the
+  scope can change later without re-running anything. The no-Supabase fallback mirrors
+  this via `lib/business/reportingScope.ts` so both paths show the same rows.
 
 ## Commands
 

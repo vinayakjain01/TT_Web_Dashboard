@@ -84,7 +84,8 @@ export function LeadsSection() {
   const leadsByCountry = useMemo(() => {
     const map = new Map<string, { total: number; converted: number }>();
     for (const l of realLeads) {
-      const key = l.country.trim() || "Unknown";
+      const key = l.country.trim();
+      if (!key) continue; // blank/unknown country omitted - chart shows only named countries
       const entry = map.get(key) ?? { total: 0, converted: 0 };
       entry.total += 1;
       if (l.is_converted) entry.converted += 1;

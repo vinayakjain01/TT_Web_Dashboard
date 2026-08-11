@@ -41,8 +41,20 @@ export function parseAppointmentRow(
   const storeLocationRaw = cell(dataRow, idx.storeLocation);
   const contactRaw = cell(dataRow, idx.contact);
 
+  // Section-divider rows ("1st Week 1 December - 7 December 2025") show up inside
+  // Store Appointments tabs too, not just the lead sheet - the marker text can land in
+  // any column depending on the tab's layout, but a real appointment always has a name
+  // and/or one of the two dates. Skip rows with none of the three, whatever else they contain.
+  if (!name && !dateOfBookingRaw && !dateOfVisitRaw) return null;
+
   const visitRes = resolveVisitDate(dateOfVisitRaw, tabConfig.year, tabConfig.monthIndex);
-  const bookingRes = resolveBookingDate(dateOfBookingRaw, tabConfig.year, visitRes.iso);
+  const bookingRes = resolveBookingDate(
+    dateOfBookingRaw,
+    tabConfig.year,
+    tabConfig.monthIndex,
+    visitRes.iso,
+    visitRes.yearWasExplicit
+  );
   const dateNeedsReview = visitRes.needsReview || bookingRes.needsReview;
   const dateReviewReason = bookingRes.needsReview ? bookingRes.reason : visitRes.reason;
 
@@ -70,6 +82,8 @@ export function parseAppointmentRow(
     dateOfBooking: bookingRes.iso,
     dateOfVisitRaw,
     dateOfVisit: visitRes.iso,
+    visitDateNote: visitRes.visitDateNote,
+    visitDatePrecision: visitRes.precision,
     dateNeedsReview,
     dateReviewReason,
     storeLocationRaw,
