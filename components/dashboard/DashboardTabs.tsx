@@ -18,15 +18,20 @@ export function DashboardTabs() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex gap-1 border-b" style={{ borderColor: "var(--border-hairline)" }}>
+      <div
+        className="flex gap-1 self-start rounded-xl p-1"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        role="group"
+        aria-label="Dashboard section"
+      >
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActive(tab.key)}
-            className="px-3 py-2 text-sm font-medium"
+            className="rounded-[9px] px-4 py-2 text-[13px] font-bold"
             style={{
-              color: active === tab.key ? "var(--text-primary)" : "var(--text-muted)",
-              borderBottom: active === tab.key ? "2px solid var(--series-1)" : "2px solid transparent",
+              background: active === tab.key ? "var(--primary)" : "transparent",
+              color: active === tab.key ? "#fff" : "var(--text-secondary)",
             }}
           >
             {tab.label}

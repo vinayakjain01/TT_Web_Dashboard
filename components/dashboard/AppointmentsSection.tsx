@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { StoreAppointmentRow } from "@/lib/types/db";
-import { BarChartCard } from "./BarChartCard";
+import { BarChartCard, CHART_PALETTE } from "./BarChartCard";
 import { Pagination } from "./Pagination";
+import { Pill, type PillTone } from "./Pill";
 import { ReviewCallout } from "./ReviewCallout";
+import { SectionTitle } from "./SectionTitle";
 import { StatTile } from "./StatTile";
 
 const PAGE_SIZE = 50;
@@ -19,6 +21,13 @@ function isVisited(a: StoreAppointmentRow): boolean {
 
 function isPurchased(a: StoreAppointmentRow): boolean {
   return a.visit_outcome === "Purchased" || isYes(a.order_placed_flag_raw);
+}
+
+function outcomeTone(outcome: string): PillTone {
+  if (outcome === "Purchased") return "good";
+  if (outcome === "Not Reached / No Visit") return "bad";
+  if (outcome === "Pending / Rescheduled") return "warn";
+  return "neutral";
 }
 
 export function AppointmentsSection() {
@@ -61,7 +70,7 @@ export function AppointmentsSection() {
   const dateReview = useMemo(() => (appointments ?? []).filter((a) => a.date_needs_review), [appointments]);
   const locationReview = useMemo(() => (appointments ?? []).filter((a) => a.location_needs_review), [appointments]);
 
-  if (error) return <p className="text-sm text-red-500">Failed to load appointments: {error}</p>;
+  if (error) return <p className="text-sm" style={{ color: "var(--coral)" }}>Failed to load appointments: {error}</p>;
   if (!appointments)
     return (
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -70,35 +79,99 @@ export function AppointmentsSection() {
     );
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatTile label="Total Appointments" value={kpis.total.toLocaleString()} />
-        <StatTile label="Purchased" value={kpis.purchased.toLocaleString()} />
-        <StatTile label="Visit Rate" value={`${kpis.visitRate}%`} sublabel="visited / booked" />
+    <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
+        <StatTile label="Total Appointments" value={kpis.total.toLocaleString()} accent="var(--primary)" />
+        <StatTile label="Purchased" value={kpis.purchased.toLocaleString()} accent="var(--teal)" />
+        <StatTile label="Visit Rate" value={`${kpis.visitRate}%`} sublabel="visited / booked" accent="var(--gold)" />
       </div>
 
-      <BarChartCard
-        title="Appointments and purchases by city"
-        data={byCity}
-        series={[
-          { key: "appointments", label: "Appointments", color: "var(--series-1)" },
-          { key: "purchases", label: "Purchases", color: "var(--series-2)" },
-        ]}
-      />
+      <div className="flex flex-col gap-4">
+        <SectionTitle>Visual analysis</SectionTitle>
+        <BarChartCard
+          title="Appointments and purchases by city"
+          data={byCity}
+          series={[
+            { key: "appointments", label: "Appointments", color: CHART_PALETTE[0] },
+            { key: "purchases", label: "Purchases", color: CHART_PALETTE[1] },
+          ]}
+        />
+      </div>
 
-      <div className="flex flex-col gap-3">
-        <ReviewCallout count={dateReview.length} label="appointments with an unresolved date" />
-        <ReviewCallout count={locationReview.length} label="appointments with an unrecognized store location" />
-        {(dateReview.length > 0 || locationReview.length > 0) && (
-          <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid var(--border-hairline)" }}>
-            <table className="w-full text-sm">
+      {(dateReview.length > 0 || locationReview.length > 0) && (
+        <div className="flex flex-col gap-3">
+          <SectionTitle>Needs review</SectionTitle>
+          <ReviewCallout count={dateReview.length} label="appointments with an unresolved date" />
+          <ReviewCallout count={locationReview.length} label="appointments with an unrecognized store location" />
+          <div
+            className="rounded-[var(--radius)] px-5 py-[18px]"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 3px 10px var(--shadow)" }}
+          >
+            <div className="max-h-[400px] overflow-auto rounded-[10px]" style={{ border: "1px solid var(--border)" }}>
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr>
+                    {["Tab", "Name", "Issue", "Booking (raw)", "Visit (raw)", "Location (raw)", "Reason"].map((h) => (
+                      <th
+                        key={h}
+                        className="sticky top-0 whitespace-nowrap px-3 py-2.5 text-left text-[11.5px] font-bold tracking-[.03em] text-white uppercase"
+                        style={{ background: "var(--primary)" }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...dateReview.map((a) => ({ a, issue: "Date" })), ...locationReview.map((a) => ({ a, issue: "Location" }))].map(
+                    ({ a, issue }, i) => (
+                      <tr key={`${issue}-${a.id}-${i}`} className="even:bg-[var(--surface-alt)] hover:bg-[var(--gold-light)]">
+                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                          {a.tab_title}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                          {a.name || "-"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
+                          <Pill tone="warn">{issue}</Pill>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                          {a.date_of_booking_raw || "-"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                          {a.date_of_visit_raw || "-"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                          {a.store_location_raw || "-"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                          {a.date_review_reason ?? "unrecognized location"}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4">
+        <SectionTitle>Appointment records</SectionTitle>
+        <div
+          className="rounded-[var(--radius)] px-5 py-[18px]"
+          style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 3px 10px var(--shadow)" }}
+        >
+          <div className="max-h-[480px] overflow-auto rounded-[10px]" style={{ border: "1px solid var(--border)" }}>
+            <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--border-hairline)" }}>
-                  {["Tab", "Name", "Issue", "Booking (raw)", "Visit (raw)", "Location (raw)", "Reason"].map((h) => (
+                <tr>
+                  {["Date of Booking", "Name", "Date of visit", "Store location", "Outcome"].map((h) => (
                     <th
                       key={h}
-                      className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wide"
-                      style={{ color: "var(--text-muted)" }}
+                      className="sticky top-0 whitespace-nowrap px-3 py-2.5 text-left text-[11.5px] font-bold tracking-[.03em] text-white uppercase"
+                      style={{ background: "var(--primary)" }}
                     >
                       {h}
                     </th>
@@ -106,86 +179,39 @@ export function AppointmentsSection() {
                 </tr>
               </thead>
               <tbody>
-                {[...dateReview.map((a) => ({ a, issue: "Date" })), ...locationReview.map((a) => ({ a, issue: "Location" }))].map(
-                  ({ a, issue }, i) => (
-                    <tr key={`${issue}-${a.id}-${i}`} style={{ borderBottom: "1px solid var(--gridline)" }}>
-                      <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-secondary)" }}>
-                        {a.tab_title}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-primary)" }}>
-                        {a.name || "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--status-warning)" }}>
-                        {issue}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-secondary)" }}>
-                        {a.date_of_booking_raw || "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-secondary)" }}>
-                        {a.date_of_visit_raw || "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-secondary)" }}>
-                        {a.store_location_raw || "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-secondary)" }}>
-                        {a.date_review_reason ?? "unrecognized location"}
-                      </td>
-                    </tr>
-                  )
-                )}
+                {appointments.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE).map((a) => (
+                  <tr key={a.id} className="even:bg-[var(--surface-alt)] hover:bg-[var(--gold-light)]">
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {a.date_of_booking ?? a.date_of_booking_raw}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {a.name || "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {a.date_of_visit ?? a.date_of_visit_raw}
+                    </td>
+                    <td
+                      className="whitespace-nowrap px-3 py-[9px]"
+                      style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}
+                      title={`raw: ${a.store_location_raw}`}
+                    >
+                      {a.city || "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <Pill tone={outcomeTone(a.visit_outcome)}>{a.visit_outcome}</Pill>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
-
-      <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid var(--border-hairline)" }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border-hairline)" }}>
-              {["Date of Booking", "Name", "Date of visit", "Store location", "Outcome"].map((h) => (
-                <th
-                  key={h}
-                  className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wide"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {appointments.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE).map((a) => (
-              <tr key={a.id} style={{ borderBottom: "1px solid var(--gridline)" }}>
-                <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-secondary)" }}>
-                  {a.date_of_booking ?? a.date_of_booking_raw}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-primary)" }}>
-                  {a.name || "-"}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-secondary)" }}>
-                  {a.date_of_visit ?? a.date_of_visit_raw}
-                </td>
-                <td
-                  className="whitespace-nowrap px-3 py-2"
-                  style={{ color: "var(--text-secondary)" }}
-                  title={`raw: ${a.store_location_raw}`}
-                >
-                  {a.city || "-"}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2" style={{ color: "var(--text-secondary)" }}>
-                  {a.visit_outcome}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <Pagination
-          page={page}
-          pageCount={Math.max(1, Math.ceil(appointments.length / PAGE_SIZE))}
-          total={appointments.length}
-          onChange={setPage}
-        />
+          <Pagination
+            page={page}
+            pageCount={Math.max(1, Math.ceil(appointments.length / PAGE_SIZE))}
+            total={appointments.length}
+            onChange={setPage}
+          />
+        </div>
       </div>
     </div>
   );

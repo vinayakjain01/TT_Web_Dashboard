@@ -2,7 +2,13 @@
 
 Lead funnel + store appointment dashboard for Tarun Tahiliani. Same architecture as
 `MM_Web_Dashboard`: a GitHub Action syncs two Google Sheets into Supabase, and a
-Next.js app on Vercel reads only from Supabase via server-side API routes.
+Next.js app on Vercel reads from Supabase via server-side API routes (each route
+falls back to reading the sheets directly if Supabase isn't configured yet - see
+**Setup**). The visual design - purple/gold palette, Fraunces + Manrope type, KPI
+cards with a colored accent bar, status pills, purple sticky table headers - matches
+`MM_Web_Dashboard`'s own dashboard rather than a generic theme; tokens live in
+`app/globals.css` and the series colors barred charts use are in
+`components/dashboard/BarChartCard.tsx`'s `CHART_PALETTE`.
 
 ```
 Google Sheets (public "anyone with link" CSV export)
@@ -19,20 +25,32 @@ Next.js API routes (app/api/*) -> dashboard UI (no auth gate - see below)
 
 ## Setup
 
+**The dashboard works immediately with no setup** - `npm install && npm run dev` and
+it's live at http://localhost:3000, reading straight from the sheets. Every
+`app/api/*` route checks `SUPABASE_URL`/`SUPABASE_SECRET_KEY` (`lib/supabase/isConfigured.ts`)
+and falls back to fetching and parsing the sheets directly (`lib/dataSource.ts`) when
+they're absent, rather than erroring. The header shows a tag ("Preview - reading live
+from Google Sheets" vs "Connected to Supabase") so it's always clear which mode is
+active. This fallback re-parses on every request instead of reading a pre-built table,
+so it's noticeably slower than the Supabase path (a few seconds per tab fetched) -
+fine for previewing, not a substitute for actually wiring up Supabase for production.
+
+To wire up the real pipeline:
+
 1. **Create a Supabase project** and run the migration in `supabase/migrations/0001_init.sql`
    against it (Supabase Studio's SQL editor, or `psql "$DATABASE_URL" -f supabase/migrations/0001_init.sql`).
 2. Copy `.env.example` to `.env.local` and fill in `SUPABASE_URL`, `SUPABASE_SECRET_KEY`,
    and `DATABASE_URL` from that project.
-3. `npm install`
-4. `npm run sync:dry-run` - fetches and parses both spreadsheets, prints a summary,
+3. `npm run sync:dry-run` - fetches and parses both spreadsheets, prints a summary,
    writes nothing. Good smoke test before touching a real database.
-5. `npm run sync` - does the same, then truncates and reloads `leads`,
+4. `npm run sync` - does the same, then truncates and reloads `leads`,
    `store_appointments`, and `lead_appointment_matches` inside one transaction.
-6. `npm run dev` and open http://localhost:3000.
-7. In GitHub, add `DATABASE_URL` as a repository secret so `.github/workflows/sync.yml`
+5. Restart `npm run dev` - the header tag should flip to "Connected to Supabase."
+6. In GitHub, add `DATABASE_URL` as a repository secret so `.github/workflows/sync.yml`
    can run on its schedule (every 6 hours) or via the manual "Run workflow" button.
-8. In Vercel, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` as environment variables for
-   the deployed app.
+7. In Vercel, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` as environment variables for
+   the deployed app - otherwise the deployed dashboard runs in the same live-sheets
+   fallback mode.
 
 ### Security - rotate before/after going live
 
