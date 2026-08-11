@@ -1,5 +1,6 @@
 import { DashboardTabs } from "@/components/dashboard/DashboardTabs";
 import { DataSourceTag } from "@/components/dashboard/DataSourceTag";
+import { SheetLinks } from "@/components/dashboard/SheetLinks";
 
 export default function Home() {
   return (
@@ -21,7 +22,10 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <DataSourceTag />
+        <div className="flex flex-col items-end gap-2">
+          <DataSourceTag />
+          <SheetLinks />
+        </div>
       </header>
       <DashboardTabs />
     </main>

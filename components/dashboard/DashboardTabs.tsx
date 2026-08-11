@@ -39,9 +39,22 @@ export function DashboardTabs() {
         ))}
       </div>
 
-      {active === "leads" && <LeadsSection />}
-      {active === "appointments" && <AppointmentsSection />}
-      {active === "journey" && <JourneySection />}
+      {/*
+        All three sections stay mounted - each fetches once on first mount and keeps
+        its data in memory. Switching tabs used to unmount/remount the section, which
+        threw away already-fetched data and re-ran every Supabase query (7 paginated
+        calls for ~7,500 leads) on every single click. display:none just hides the
+        inactive ones instead, so a tab switch after the first load is instant.
+      */}
+      <div style={{ display: active === "leads" ? "block" : "none" }}>
+        <LeadsSection />
+      </div>
+      <div style={{ display: active === "appointments" ? "block" : "none" }}>
+        <AppointmentsSection />
+      </div>
+      <div style={{ display: active === "journey" ? "block" : "none" }}>
+        <JourneySection />
+      </div>
     </div>
   );
 }

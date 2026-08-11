@@ -7,7 +7,6 @@ import { DateField } from "./DateField";
 import { FilterSelect } from "./FilterSelect";
 import { Pagination } from "./Pagination";
 import { Pill, type PillTone } from "./Pill";
-import { ReviewCallout } from "./ReviewCallout";
 import { SectionTitle } from "./SectionTitle";
 import { StatTile } from "./StatTile";
 
@@ -94,9 +93,6 @@ export function AppointmentsSection() {
       .sort((a, b) => b[1].appointments - a[1].appointments)
       .map(([name, v]) => ({ name, appointments: v.appointments, purchases: v.purchases }));
   }, [appointments]);
-
-  const dateReview = useMemo(() => (appointments ?? []).filter((a) => a.date_needs_review), [appointments]);
-  const locationReview = useMemo(() => (appointments ?? []).filter((a) => a.location_needs_review), [appointments]);
 
   if (error) return <p className="text-sm" style={{ color: "var(--coral)" }}>Failed to load appointments: {error}</p>;
   if (!appointments)
@@ -196,69 +192,6 @@ export function AppointmentsSection() {
           ]}
         />
       </div>
-
-      {(dateReview.length > 0 || locationReview.length > 0) && (
-        <div className="flex flex-col gap-3">
-          <SectionTitle>Needs review</SectionTitle>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Rows where a date or store location couldn&apos;t be resolved with confidence, so it was left for a
-            human instead of being guessed - see the <code>reason</code> column for why.
-          </p>
-          <ReviewCallout count={dateReview.length} label="appointments with an unresolved date" />
-          <ReviewCallout count={locationReview.length} label="appointments with an unrecognized store location" />
-          <div
-            className="rounded-[var(--radius)] px-5 py-[18px]"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 3px 10px var(--shadow)" }}
-          >
-            <div className="max-h-[400px] overflow-auto rounded-[10px]" style={{ border: "1px solid var(--border)" }}>
-              <table className="w-full border-collapse text-[13px]">
-                <thead>
-                  <tr>
-                    {["Tab", "Name", "Issue", "Booking (raw)", "Visit (raw)", "Location (raw)", "Reason"].map((h) => (
-                      <th
-                        key={h}
-                        className="sticky top-0 whitespace-nowrap px-3 py-2.5 text-left text-[11.5px] font-bold tracking-[.03em] text-white uppercase"
-                        style={{ background: "var(--primary)" }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...dateReview.map((a) => ({ a, issue: "Date" })), ...locationReview.map((a) => ({ a, issue: "Location" }))].map(
-                    ({ a, issue }, i) => (
-                      <tr key={`${issue}-${a.id}-${i}`} className="even:bg-[var(--surface-alt)] hover:bg-[var(--gold-light)]">
-                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                          {a.tab_title}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
-                          {a.name || "-"}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
-                          <Pill tone="warn">{issue}</Pill>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                          {a.date_of_booking_raw || "-"}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                          {a.date_of_visit_raw || "-"}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                          {a.store_location_raw || "-"}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                          {a.date_review_reason ?? "unrecognized location"}
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
