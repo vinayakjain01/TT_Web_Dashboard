@@ -70,15 +70,19 @@ export function LeadsSection() {
   const { data: summary, error: summaryError } = useFetchJson<LeadSummary>(`/api/leads/summary?${queryString}`);
   const { data: charts, error: chartsError } = useFetchJson<LeadCharts>(`/api/leads/charts?${queryString}`);
   const { data: options } = useFetchJson<LeadOptions>("/api/leads/options"); // never filtered - see route comment
+  // Same endpoint the "Unclear Leads" block at the top of the Lead Journey tab reads -
+  // both fetch independently from the same URL filter state, so the KPI count here can
+  // never drift from what that table shows.
+  const { data: unclearData, error: unclearError } = useFetchJson<{ leads: LeadRow[] }>(`/api/leads/unclear?${queryString}`);
 
   const leads = tableData?.leads ?? null;
-  const error = tableError ?? summaryError ?? chartsError;
+  const error = tableError ?? summaryError ?? chartsError ?? unclearError;
 
   const pageCount = Math.max(1, Math.ceil((leads?.length ?? 0) / PAGE_SIZE));
   const pageRows = (leads ?? []).slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   if (error) return <p className="text-sm" style={{ color: "var(--coral)" }}>Failed to load leads: {error}</p>;
-  if (!leads || !summary || !charts) {
+  if (!leads || !summary || !charts || !unclearData) {
     return (
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
         Loading leads...
@@ -88,11 +92,17 @@ export function LeadsSection() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-5">
         <StatTile label="Total Leads" value={summary.total.toLocaleString()} accent="var(--primary)" />
         <StatTile label="Converted Leads" value={summary.converted.toLocaleString()} accent="var(--teal)" />
         <StatTile label="Conversion Rate" value={`${summary.conversionRate}%`} accent="var(--gold)" />
         <StatTile label="Store Appointments Booked" value={summary.storeAppointments.toLocaleString()} accent="var(--primary-light)" />
+        <StatTile
+          label="Unclear Leads"
+          value={unclearData.leads.length.toLocaleString()}
+          sublabel="Store Appointment status, no matching visit"
+          accent="var(--coral)"
+        />
       </div>
 
       <div className="flex flex-col gap-4">

@@ -1,7 +1,9 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import type { LeadJourneyRow } from "@/lib/types/db";
+import { useFetchJson } from "@/lib/hooks/useFetchJson";
+import type { LeadJourneyRow, LeadRow } from "@/lib/types/db";
 import { Pagination } from "./Pagination";
 import { Pill, type PillTone } from "./Pill";
 import { SectionTitle } from "./SectionTitle";
@@ -13,6 +15,106 @@ function outcomeTone(outcome: string): PillTone {
   if (outcome === "Not Reached / No Visit") return "bad";
   if (outcome === "Pending / Rescheduled") return "warn";
   return "neutral";
+}
+
+/**
+ * Leads whose status claims a store appointment exists but the loose phone/name join
+ * (lib/business/match.ts, via /api/leads/unclear) never linked to a Store Appointments
+ * record - a real gap worth surfacing, not "any unmatched lead" (most leads never reach
+ * appointment stage and were never expected to match). Reads the Lead Funnel section's
+ * shared URL filter state exactly like LeadsSection's own KPI/chart/table hooks, so this
+ * table and the "Unclear Leads" KPI card on the Lead Funnel tab always agree.
+ */
+function UnclearLeadsBlock() {
+  const searchParams = useSearchParams();
+  const [page, setPage] = useState(0);
+  const queryString = searchParams.toString();
+  const { data, error } = useFetchJson<{ leads: LeadRow[] }>(`/api/leads/unclear?${queryString}`);
+  const leads = data?.leads ?? null;
+  const pageRows = (leads ?? []).slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <SectionTitle>Unclear leads</SectionTitle>
+      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+        Marked &quot;Store Appointment&quot; but never matched to a Store Appointments record - the visit may not be
+        logged yet, the status may have been set early, or the name/phone on file doesn&apos;t match. Responds to the
+        Lead Funnel section&apos;s Status/Country/Source/date filters.
+      </p>
+      {error && (
+        <p className="text-sm" style={{ color: "var(--coral)" }}>
+          Failed to load unclear leads: {error}
+        </p>
+      )}
+      {!error && !leads && (
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          Loading unclear leads...
+        </p>
+      )}
+      {leads && (
+        <div
+          className="rounded-[var(--radius)] px-5 py-[18px]"
+          style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 3px 10px var(--shadow)" }}
+        >
+          <div className="max-h-[480px] overflow-auto rounded-[10px]" style={{ border: "1px solid var(--border)" }}>
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  {["Lead Date", "Customer Name", "Source", "Country", "Phone Number", "Phone Key", "Status", "Follow-up Date"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="sticky top-0 whitespace-nowrap px-3 py-2.5 text-left text-[11.5px] font-bold tracking-[.03em] text-white uppercase"
+                        style={{ background: "var(--coral)" }}
+                      >
+                        {h}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((l) => (
+                  <tr key={l.id} className="even:bg-[var(--surface-alt)] hover:bg-[var(--gold-light)]">
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {l.date ?? l.date_raw}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {l.customer_name || "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {l.source || "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {l.country || "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {l.phone_raw || "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                      {l.phone_key || "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <Pill tone="warn">{l.status || "-"}</Pill>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      {l.follow_up_date ?? l.follow_up_date_raw ?? "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={page}
+            pageCount={Math.max(1, Math.ceil(leads.length / PAGE_SIZE))}
+            total={leads.length}
+            onChange={setPage}
+          />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function JourneySection() {
@@ -32,77 +134,82 @@ export function JourneySection() {
 
   const pageRows = useMemo(() => (rows ?? []).slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE), [rows, page]);
 
-  if (error) return <p className="text-sm" style={{ color: "var(--coral)" }}>Failed to load journey view: {error}</p>;
-  if (!rows) return <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Loading journey view...</p>;
-
   return (
-    <div className="flex flex-col gap-4">
-      <SectionTitle>Lead journey</SectionTitle>
-      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-        Leads matched to a store-appointment record by phone or a close name match ({rows.length} matched). Every
-        lead and appointment still appears in its own section regardless of whether a match was found here.
-      </p>
-      <div
-        className="rounded-[var(--radius)] px-5 py-[18px]"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 3px 10px var(--shadow)" }}
-      >
-        <div className="max-h-[480px] overflow-auto rounded-[10px]" style={{ border: "1px solid var(--border)" }}>
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr>
-                {["Customer", "Lead Source", "Lead Date", "Match", "Booking", "Visit", "City", "Outcome"].map((h) => (
-                  <th
-                    key={h}
-                    className="sticky top-0 whitespace-nowrap px-3 py-2.5 text-left text-[11.5px] font-bold tracking-[.03em] text-white uppercase"
-                    style={{ background: "var(--primary)" }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {pageRows.map((r) => (
-                <tr
-                  key={`${r.lead_source_row_index}-${r.appointment_tab_gid}`}
-                  className="even:bg-[var(--surface-alt)] hover:bg-[var(--gold-light)]"
-                >
-                  <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
-                    {r.customer_name || "-"}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                    {r.lead_source || "-"}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                    {r.lead_date ?? "-"}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
-                    <Pill tone="neutral">{r.match_basis}</Pill>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                    {r.date_of_booking ?? "-"}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                    {r.date_of_visit ?? "-"}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-                    {r.appointment_city || "-"}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
-                    <Pill tone={outcomeTone(r.visit_outcome)}>{r.visit_outcome}</Pill>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="flex flex-col gap-8">
+      <UnclearLeadsBlock />
+
+      {error && <p className="text-sm" style={{ color: "var(--coral)" }}>Failed to load journey view: {error}</p>}
+      {!error && !rows && <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Loading journey view...</p>}
+      {rows && (
+        <div className="flex flex-col gap-4">
+          <SectionTitle>Lead journey</SectionTitle>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Leads matched to a store-appointment record by phone or a close name match ({rows.length} matched). Every
+            lead and appointment still appears in its own section regardless of whether a match was found here.
+          </p>
+          <div
+            className="rounded-[var(--radius)] px-5 py-[18px]"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 3px 10px var(--shadow)" }}
+          >
+            <div className="max-h-[480px] overflow-auto rounded-[10px]" style={{ border: "1px solid var(--border)" }}>
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr>
+                    {["Customer", "Lead Source", "Lead Date", "Match", "Booking", "Visit", "City", "Outcome"].map((h) => (
+                      <th
+                        key={h}
+                        className="sticky top-0 whitespace-nowrap px-3 py-2.5 text-left text-[11.5px] font-bold tracking-[.03em] text-white uppercase"
+                        style={{ background: "var(--primary)" }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((r) => (
+                    <tr
+                      key={`${r.lead_source_row_index}-${r.appointment_tab_gid}`}
+                      className="even:bg-[var(--surface-alt)] hover:bg-[var(--gold-light)]"
+                    >
+                      <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                        {r.customer_name || "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                        {r.lead_source || "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                        {r.lead_date ?? "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
+                        <Pill tone="neutral">{r.match_basis}</Pill>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                        {r.date_of_booking ?? "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                        {r.date_of_visit ?? "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+                        {r.appointment_city || "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
+                        <Pill tone={outcomeTone(r.visit_outcome)}>{r.visit_outcome}</Pill>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination
+              page={page}
+              pageCount={Math.max(1, Math.ceil(rows.length / PAGE_SIZE))}
+              total={rows.length}
+              onChange={setPage}
+            />
+          </div>
         </div>
-        <Pagination
-          page={page}
-          pageCount={Math.max(1, Math.ceil(rows.length / PAGE_SIZE))}
-          total={rows.length}
-          onChange={setPage}
-        />
-      </div>
+      )}
     </div>
   );
 }
