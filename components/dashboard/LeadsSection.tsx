@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { LEAD_FILTER_KEYS } from "@/lib/filters/leadFilters";
 import { useFetchJson } from "@/lib/hooks/useFetchJson";
-import type { LeadRow } from "@/lib/types/db";
+import type { LeadRow, UnclearLeadRow } from "@/lib/types/db";
 import { BarChartCard, CHART_PALETTE } from "./BarChartCard";
 import { DateField } from "./DateField";
 import { FilterSelect } from "./FilterSelect";
@@ -28,6 +28,7 @@ interface LeadSummary {
   converted: number;
   conversionRate: number;
   storeAppointments: number;
+  paymentLinkSent: number;
 }
 
 interface LeadCharts {
@@ -73,7 +74,9 @@ export function LeadsSection() {
   // Same endpoint the "Unclear Leads" block at the top of the Lead Journey tab reads -
   // both fetch independently from the same URL filter state, so the KPI count here can
   // never drift from what that table shows.
-  const { data: unclearData, error: unclearError } = useFetchJson<{ leads: LeadRow[] }>(`/api/leads/unclear?${queryString}`);
+  const { data: unclearData, error: unclearError } = useFetchJson<{ leads: UnclearLeadRow[] }>(
+    `/api/leads/unclear?${queryString}`
+  );
 
   const leads = tableData?.leads ?? null;
   const error = tableError ?? summaryError ?? chartsError ?? unclearError;
@@ -92,15 +95,16 @@ export function LeadsSection() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
         <StatTile label="Total Leads" value={summary.total.toLocaleString()} accent="var(--primary)" />
         <StatTile label="Converted Leads" value={summary.converted.toLocaleString()} accent="var(--teal)" />
         <StatTile label="Conversion Rate" value={`${summary.conversionRate}%`} accent="var(--gold)" />
         <StatTile label="Store Appointments Booked" value={summary.storeAppointments.toLocaleString()} accent="var(--primary-light)" />
+        <StatTile label="Payment Link Sent" value={summary.paymentLinkSent.toLocaleString()} accent="var(--amber)" />
         <StatTile
           label="Unclear Leads"
           value={unclearData.leads.length.toLocaleString()}
-          sublabel="Store Appointment status, no matching visit"
+          sublabel="booked store appointment but not visited or not purchased"
           accent="var(--coral)"
         />
       </div>

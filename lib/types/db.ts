@@ -66,6 +66,15 @@ export interface StoreAppointmentRow {
   synced_at: string;
 }
 
+export type UnclearReason = "Visited but not purchased" | "Booked store appointment but not visited or not purchased";
+
+/** A status = 'Store Appointment' lead with a genuine appointment match whose outcome
+ * shows no purchase - see supabase/migrations/0004_unclear_leads_redefined.sql and
+ * app/api/leads/unclear/route.ts for the two cases unclear_reason distinguishes. */
+export interface UnclearLeadRow extends LeadRow {
+  unclear_reason: UnclearReason;
+}
+
 export interface LeadJourneyRow {
   lead_source_row_index: number;
   customer_name: string;

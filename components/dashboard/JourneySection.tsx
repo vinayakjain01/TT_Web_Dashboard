@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useFetchJson } from "@/lib/hooks/useFetchJson";
-import type { LeadJourneyRow, LeadRow } from "@/lib/types/db";
+import type { LeadJourneyRow, UnclearLeadRow, UnclearReason } from "@/lib/types/db";
 import { Pagination } from "./Pagination";
 import { Pill, type PillTone } from "./Pill";
 import { SectionTitle } from "./SectionTitle";
@@ -17,19 +17,24 @@ function outcomeTone(outcome: string): PillTone {
   return "neutral";
 }
 
+function unclearReasonTone(reason: UnclearReason): PillTone {
+  return reason === "Visited but not purchased" ? "warn" : "bad";
+}
+
 /**
- * Leads whose status claims a store appointment exists but the loose phone/name join
- * (lib/business/match.ts, via /api/leads/unclear) never linked to a Store Appointments
- * record - a real gap worth surfacing, not "any unmatched lead" (most leads never reach
- * appointment stage and were never expected to match). Reads the Lead Funnel section's
- * shared URL filter state exactly like LeadsSection's own KPI/chart/table hooks, so this
- * table and the "Unclear Leads" KPI card on the Lead Funnel tab always agree.
+ * Status = 'Store Appointment' leads with a genuine matching Store Appointments record
+ * (lib/business/match.ts, via /api/leads/unclear - not re-matched here) whose outcome
+ * shows no purchase. A status = 'Store Appointment' lead with no match at all is a
+ * different case and isn't included here - it stays visible as normal in the main lead
+ * table. Reads the Lead Funnel section's shared URL filter state exactly like
+ * LeadsSection's own KPI/chart/table hooks, so this table and the "Unclear Leads" KPI
+ * card on the Lead Funnel tab always agree.
  */
 function UnclearLeadsBlock() {
   const searchParams = useSearchParams();
   const [page, setPage] = useState(0);
   const queryString = searchParams.toString();
-  const { data, error } = useFetchJson<{ leads: LeadRow[] }>(`/api/leads/unclear?${queryString}`);
+  const { data, error } = useFetchJson<{ leads: UnclearLeadRow[] }>(`/api/leads/unclear?${queryString}`);
   const leads = data?.leads ?? null;
   const pageRows = (leads ?? []).slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
@@ -37,9 +42,9 @@ function UnclearLeadsBlock() {
     <div className="flex flex-col gap-4">
       <SectionTitle>Unclear leads</SectionTitle>
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-        Marked &quot;Store Appointment&quot; but never matched to a Store Appointments record - the visit may not be
-        logged yet, the status may have been set early, or the name/phone on file doesn&apos;t match. Responds to the
-        Lead Funnel section&apos;s Status/Country/Source/date filters.
+        Marked &quot;Store Appointment&quot; with a real matching visit record, but no purchase resulted - either the
+        visit happened with no purchase, or nothing confirms a visit happened at all. Responds to the Lead Funnel
+        section&apos;s Status/Country/Source/date filters.
       </p>
       {error && (
         <p className="text-sm" style={{ color: "var(--coral)" }}>
@@ -60,7 +65,17 @@ function UnclearLeadsBlock() {
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr>
-                  {["Lead Date", "Customer Name", "Source", "Country", "Phone Number", "Phone Key", "Status", "Follow-up Date"].map(
+                  {[
+                    "Lead Date",
+                    "Customer Name",
+                    "Source",
+                    "Country",
+                    "Phone Number",
+                    "Phone Key",
+                    "Status",
+                    "Follow-up Date",
+                    "Reason",
+                  ].map(
                     (h) => (
                       <th
                         key={h}
@@ -99,6 +114,9 @@ function UnclearLeadsBlock() {
                     </td>
                     <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
                       {l.follow_up_date ?? l.follow_up_date_raw ?? "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-[9px]" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <Pill tone={unclearReasonTone(l.unclear_reason)}>{l.unclear_reason}</Pill>
                     </td>
                   </tr>
                 ))}

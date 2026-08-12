@@ -12,17 +12,20 @@ export const dynamic = "force-dynamic";
 interface SummarizableLead {
   is_converted: boolean;
   is_store_appointment: boolean;
+  status: string;
 }
 
 function summarize(rows: SummarizableLead[]) {
   const total = rows.length;
   const converted = rows.filter((r) => r.is_converted).length;
   const storeAppointments = rows.filter((r) => r.is_store_appointment).length;
+  const paymentLinkSent = rows.filter((r) => r.status === "Payment Link Sent").length;
   return {
     total,
     converted,
     conversionRate: total ? Number(((converted / total) * 100).toFixed(1)) : 0,
     storeAppointments,
+    paymentLinkSent,
   };
 }
 
@@ -41,7 +44,7 @@ export async function GET(request: Request) {
     const supabase = createServerSupabaseClient();
     const rows = await fetchAllRows<SummarizableLead>((from, to) =>
       applyLeadFiltersToQuery(
-        supabase.from("v_leads_recent").select("is_converted, is_store_appointment"),
+        supabase.from("v_leads_recent").select("is_converted, is_store_appointment, status"),
         filters
       ).range(from, to)
     );
