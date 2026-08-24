@@ -5,9 +5,10 @@
 -- (tab_gid, source_row_index) pattern exactly, retrofitted onto leads for its first
 -- multi-tab sync.
 --
--- Constraint names are looked up dynamically (by which columns they actually cover)
--- rather than hardcoded, since Postgres auto-generates them and this migration has never
--- been run against this specific database to confirm the exact names in advance.
+-- This entire migration has been dry-run end-to-end against a mock copy of the schema
+-- (leads/store_appointments/lead_appointment_matches + all four views + the 0004
+-- functions, seeded with a matched Store Appointment lead) before being handed over -
+-- every comment below citing a specific error is quoting what that dry run actually hit.
 
 alter table leads add column if not exists tab_gid text not null default '';
 alter table leads add column if not exists tab_title text not null default '';
@@ -24,6 +25,54 @@ create or replace view v_leads_recent as
 create or replace view v_real_leads_recent as
   select * from v_leads_recent where not is_test_record;
 
+alter table lead_appointment_matches add column if not exists lead_tab_gid text not null default '';
+
+-- Drop lead_appointment_matches' old FK + old 3-column unique constraint FIRST - the FK
+-- depends on leads' unique index on source_row_index, so it must go before that index
+-- can be dropped below (confirmed by actually running this migration against a mock
+-- copy of the schema: dropping leads' constraint first fails with "cannot drop
+-- constraint ... because other objects depend on it").
+--
+-- Constraint names are looked up dynamically (by which columns they actually cover)
+-- rather than hardcoded, since Postgres auto-generates them and this migration has never
+-- been run against this specific database to confirm the exact names in advance.
+-- attname is Postgres's internal `name` type, not `text` - array_agg(attname) produces
+-- name[], which has no equality operator against a text[] literal, so both sides are
+-- explicitly cast to text[] (confirmed by actually running this against a mock schema -
+-- the uncast version fails with "operator does not exist: name[] = text[]").
+do $$
+declare
+  con record;
+begin
+  for con in
+    select c.conname
+    from pg_constraint c
+    join pg_class rel on rel.oid = c.conrelid
+    where rel.relname = 'lead_appointment_matches'
+      and c.contype = 'f'
+      and (select array_agg(a.attname::text order by a.attname::text) from pg_attribute a
+           where a.attrelid = c.conrelid and a.attnum = any(c.conkey))
+          = array['lead_source_row_index']::text[]
+  loop
+    execute format('alter table lead_appointment_matches drop constraint %I', con.conname);
+  end loop;
+
+  for con in
+    select c.conname
+    from pg_constraint c
+    join pg_class rel on rel.oid = c.conrelid
+    where rel.relname = 'lead_appointment_matches'
+      and c.contype = 'u'
+      and (select array_agg(a.attname::text order by a.attname::text) from pg_attribute a
+           where a.attrelid = c.conrelid and a.attnum = any(c.conkey))
+          = array['appointment_source_row_index', 'appointment_tab_gid', 'lead_source_row_index']::text[]
+  loop
+    execute format('alter table lead_appointment_matches drop constraint %I', con.conname);
+  end loop;
+end $$;
+
+-- Now safe to drop leads' old single-column unique constraint (nothing depends on it
+-- anymore) and add the composite one.
 do $$
 declare
   con record;
@@ -34,53 +83,15 @@ begin
     join pg_class rel on rel.oid = c.conrelid
     where rel.relname = 'leads'
       and c.contype = 'u'
-      and (select array_agg(a.attname order by a.attname) from pg_attribute a
+      and (select array_agg(a.attname::text order by a.attname::text) from pg_attribute a
            where a.attrelid = c.conrelid and a.attnum = any(c.conkey))
-          = array['source_row_index']
+          = array['source_row_index']::text[]
   loop
     execute format('alter table leads drop constraint %I', con.conname);
   end loop;
 end $$;
 
 alter table leads add constraint leads_tab_gid_source_row_index_key unique (tab_gid, source_row_index);
-
-alter table lead_appointment_matches add column if not exists lead_tab_gid text not null default '';
-
-do $$
-declare
-  con record;
-begin
-  -- Drop the old single-column FK from lead_appointment_matches.lead_source_row_index
-  -- into leads.source_row_index.
-  for con in
-    select c.conname
-    from pg_constraint c
-    join pg_class rel on rel.oid = c.conrelid
-    where rel.relname = 'lead_appointment_matches'
-      and c.contype = 'f'
-      and (select array_agg(a.attname order by a.attname) from pg_attribute a
-           where a.attrelid = c.conrelid and a.attnum = any(c.conkey))
-          = array['lead_source_row_index']
-  loop
-    execute format('alter table lead_appointment_matches drop constraint %I', con.conname);
-  end loop;
-
-  -- Drop the old 3-column unique constraint so it can be recreated with lead_tab_gid
-  -- included - a duplicate match row should still be impossible per-tab-pair, but the
-  -- lead side of that pair now needs its tab in the key too.
-  for con in
-    select c.conname
-    from pg_constraint c
-    join pg_class rel on rel.oid = c.conrelid
-    where rel.relname = 'lead_appointment_matches'
-      and c.contype = 'u'
-      and (select array_agg(a.attname order by a.attname) from pg_attribute a
-           where a.attrelid = c.conrelid and a.attnum = any(c.conkey))
-          = array['appointment_source_row_index', 'appointment_tab_gid', 'lead_source_row_index']
-  loop
-    execute format('alter table lead_appointment_matches drop constraint %I', con.conname);
-  end loop;
-end $$;
 
 alter table lead_appointment_matches
   add constraint lead_appointment_matches_lead_fkey
