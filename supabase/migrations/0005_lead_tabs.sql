@@ -12,6 +12,18 @@
 alter table leads add column if not exists tab_gid text not null default '';
 alter table leads add column if not exists tab_title text not null default '';
 
+-- v_leads_recent/v_real_leads_recent (0002) were defined with `select *` - Postgres
+-- expands that to a fixed column list AT CREATE TIME, not dynamically on every query, so
+-- the two ALTERs above did NOT add tab_gid/tab_title to either view. Both must be
+-- re-created now, before v_unclear_leads below (which selects l.tab_gid FROM
+-- v_leads_recent) - otherwise that statement fails with "column l.tab_gid does not
+-- exist" partway through this migration.
+create or replace view v_leads_recent as
+  select * from leads where extract(year from date) in (2025, 2026);
+
+create or replace view v_real_leads_recent as
+  select * from v_leads_recent where not is_test_record;
+
 do $$
 declare
   con record;
@@ -78,9 +90,10 @@ alter table lead_appointment_matches
   add constraint lead_appointment_matches_unique_pair
   unique (lead_tab_gid, lead_source_row_index, appointment_tab_gid, appointment_source_row_index);
 
--- Both views below join through lead_appointment_matches into leads - update both joins
--- to the new composite key. Neither view's own output column list changes, so
--- CREATE OR REPLACE is safe.
+-- Both v_lead_journey and v_unclear_leads below join through lead_appointment_matches
+-- into leads - update both joins to the new composite key.
+-- v_lead_journey's own output column list is unchanged (still an explicit SELECT list,
+-- not `l.*`), so CREATE OR REPLACE is safe here.
 
 create or replace view v_lead_journey as
   select
@@ -102,7 +115,16 @@ create or replace view v_lead_journey as
   join store_appointments a
     on a.tab_gid = m.appointment_tab_gid and a.source_row_index = m.appointment_source_row_index;
 
-create or replace view v_unclear_leads as
+-- CREATE OR REPLACE VIEW only allows new trailing columns when every existing column
+-- stays in the same position - fine for v_leads_recent/v_lead_journey above, but
+-- v_unclear_leads' trailing unclear_reason column would get pushed two positions later
+-- now that l.* (from the just-widened v_leads_recent) includes tab_gid/tab_title before
+-- it, which Postgres rejects ("cannot change name of view column ... to ..."). Drop and
+-- recreate instead - nothing else in the schema selects from v_unclear_leads, and every
+-- caller reads it by column name (LeadRow/UnclearLeadRow), never by position.
+drop view if exists v_unclear_leads;
+
+create view v_unclear_leads as
   select l.*, 'Visited but not purchased' as unclear_reason
   from v_leads_recent l
   join lead_appointment_matches m on m.lead_tab_gid = l.tab_gid and m.lead_source_row_index = l.source_row_index
