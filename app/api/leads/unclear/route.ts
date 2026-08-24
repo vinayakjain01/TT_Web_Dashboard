@@ -30,9 +30,11 @@ export async function GET(request: Request) {
 
   if (isSupabaseConfigured()) {
     const supabase = createServerSupabaseClient();
+    // See app/api/leads/route.ts - ordering by tab_gid unconditionally broke this route
+    // in production for anyone who hadn't applied migration 0005 (which adds that
+    // column) yet. Reverted to the one column guaranteed to exist.
     const leads = await fetchAllRows<UnclearLeadRow>((from, to) =>
       applyLeadFiltersToQuery(supabase.from("v_unclear_leads").select("*"), filters)
-        .order("tab_gid")
         .order("source_row_index")
         .range(from, to)
     );

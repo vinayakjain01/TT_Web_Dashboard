@@ -19,11 +19,13 @@ export async function GET(request: Request) {
     // the view layer, not by touching how leads is ingested) - keeps test records,
     // same as the raw table, since the detail table still shows them per rule 1. The
     // same filters the summary/charts routes apply are applied here too.
+    // Ordering by tab_gid too (grouping rows by tab before by row index) would be nicer
+    // now that source_row_index resets per lead tab, but that column only exists once
+    // migration 0005 has actually been applied - ordering by it unconditionally broke
+    // this route in production for anyone who hadn't applied 0005 yet. Reverted to the
+    // one column guaranteed to exist since 0001.
     const leads = await fetchAllRows<LeadRow>((from, to) =>
-      applyLeadFiltersToQuery(supabase.from("v_leads_recent").select("*"), filters)
-        .order("tab_gid")
-        .order("source_row_index")
-        .range(from, to)
+      applyLeadFiltersToQuery(supabase.from("v_leads_recent").select("*"), filters).order("source_row_index").range(from, to)
     );
     return NextResponse.json({ leads, source: "supabase" });
   }
