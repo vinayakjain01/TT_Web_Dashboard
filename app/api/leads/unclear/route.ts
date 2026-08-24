@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     const supabase = createServerSupabaseClient();
     const leads = await fetchAllRows<UnclearLeadRow>((from, to) =>
       applyLeadFiltersToQuery(supabase.from("v_unclear_leads").select("*"), filters)
+        .order("tab_gid")
         .order("source_row_index")
         .range(from, to)
     );
@@ -39,13 +40,13 @@ export async function GET(request: Request) {
   }
 
   const { leads: parsedLeads, appointments, matches } = await fetchParsedDataset();
-  const leadByRow = new Map(parsedLeads.map((l) => [l.sourceRowIndex, l]));
+  const leadByRow = new Map(parsedLeads.map((l) => [`${l.tabGid}:${l.sourceRowIndex}`, l]));
   const apptByKey = new Map(appointments.map((a) => [`${a.tabGid}:${a.sourceRowIndex}`, a]));
   const syncedAt = new Date().toISOString();
 
   const scoped: UnclearLeadRow[] = [];
   matches.forEach((m, i) => {
-    const lead = leadByRow.get(m.leadSourceRowIndex);
+    const lead = leadByRow.get(`${m.leadTabGid}:${m.leadSourceRowIndex}`);
     const appt = apptByKey.get(`${m.appointmentTabGid}:${m.appointmentSourceRowIndex}`);
     if (!lead || !appt) return;
     if (lead.status !== "Store Appointment" || !isInLeadReportingScope(lead.date)) return;

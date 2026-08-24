@@ -1,4 +1,9 @@
 export interface ParsedLead {
+  /** Which lead-sheet tab this row came from - see config/leadTabs.ts. Leads only ever
+   * had one tab until "TT AUGUST" was added, so sourceRowIndex (reset per tab, same as
+   * ParsedStoreAppointment) is only unique combined with this. */
+  tabGid: string;
+  tabTitle: string;
   sourceRowIndex: number;
   dateRaw: string;
   date: string | null; // ISO yyyy-mm-dd

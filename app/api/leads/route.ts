@@ -20,7 +20,10 @@ export async function GET(request: Request) {
     // same as the raw table, since the detail table still shows them per rule 1. The
     // same filters the summary/charts routes apply are applied here too.
     const leads = await fetchAllRows<LeadRow>((from, to) =>
-      applyLeadFiltersToQuery(supabase.from("v_leads_recent").select("*"), filters).order("source_row_index").range(from, to)
+      applyLeadFiltersToQuery(supabase.from("v_leads_recent").select("*"), filters)
+        .order("tab_gid")
+        .order("source_row_index")
+        .range(from, to)
     );
     return NextResponse.json({ leads, source: "supabase" });
   }

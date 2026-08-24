@@ -1,6 +1,7 @@
 import type { ParsedLead, ParsedStoreAppointment } from "./types";
 
 export interface LeadAppointmentMatch {
+  leadTabGid: string;
   leadSourceRowIndex: number;
   appointmentTabGid: string;
   appointmentSourceRowIndex: number;
@@ -44,8 +45,11 @@ export function matchLeadsToAppointments(
   appointments: ParsedStoreAppointment[]
 ): LeadAppointmentMatch[] {
   const matches: LeadAppointmentMatch[] = [];
-  const matchedLeadRows = new Set<number>();
+  // Keyed by "tabGid:sourceRowIndex" - sourceRowIndex resets per lead tab (same as
+  // appointments), so the tab must be part of a lead's identity here too.
+  const matchedLeadRows = new Set<string>();
   const matchedAppointmentKeys = new Set<string>();
+  const leadKey = (l: ParsedLead) => `${l.tabGid}:${l.sourceRowIndex}`;
 
   const appointmentsByPhone = new Map<string, ParsedStoreAppointment[]>();
   for (const appt of appointments) {
@@ -63,16 +67,17 @@ export function matchLeadsToAppointments(
     if (!candidates || candidates.length === 0) continue;
     const appt = candidates[0];
     matches.push({
+      leadTabGid: lead.tabGid,
       leadSourceRowIndex: lead.sourceRowIndex,
       appointmentTabGid: appt.tabGid,
       appointmentSourceRowIndex: appt.sourceRowIndex,
       matchBasis: "phone",
     });
-    matchedLeadRows.add(lead.sourceRowIndex);
+    matchedLeadRows.add(leadKey(lead));
     matchedAppointmentKeys.add(`${appt.tabGid}:${appt.sourceRowIndex}`);
   }
 
-  const unmatchedLeads = leads.filter((l) => !matchedLeadRows.has(l.sourceRowIndex) && l.customerName);
+  const unmatchedLeads = leads.filter((l) => !matchedLeadRows.has(leadKey(l)) && l.customerName);
   const unmatchedAppointments = appointments.filter(
     (a) => !matchedAppointmentKeys.has(`${a.tabGid}:${a.sourceRowIndex}`) && a.name
   );
@@ -85,6 +90,7 @@ export function matchLeadsToAppointments(
     );
     if (!appt) continue;
     matches.push({
+      leadTabGid: lead.tabGid,
       leadSourceRowIndex: lead.sourceRowIndex,
       appointmentTabGid: appt.tabGid,
       appointmentSourceRowIndex: appt.sourceRowIndex,

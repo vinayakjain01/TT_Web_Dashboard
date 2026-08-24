@@ -4,6 +4,8 @@
 
 export interface LeadRow {
   id: number;
+  tab_gid: string;
+  tab_title: string;
   source_row_index: number;
   date: string | null;
   date_raw: string;

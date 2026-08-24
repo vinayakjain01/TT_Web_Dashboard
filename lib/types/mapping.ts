@@ -7,6 +7,8 @@ import type { LeadJourneyRow, LeadRow, StoreAppointmentRow } from "./db";
 
 export function leadToDbColumns(l: ParsedLead) {
   return {
+    tab_gid: l.tabGid,
+    tab_title: l.tabTitle,
     source_row_index: l.sourceRowIndex,
     date: l.date,
     date_raw: l.dateRaw,

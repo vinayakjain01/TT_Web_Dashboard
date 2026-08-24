@@ -18,10 +18,14 @@ export async function GET() {
   }
 
   const { leads, appointments, matches } = await fetchParsedDataset();
-  const leadByRow = new Map(leads.map((l) => [l.sourceRowIndex, l]));
+  const leadByRow = new Map(leads.map((l) => [`${l.tabGid}:${l.sourceRowIndex}`, l]));
   const apptByKey = new Map(appointments.map((a) => [`${a.tabGid}:${a.sourceRowIndex}`, a]));
   const journey: LeadJourneyRow[] = matches.map((m) =>
-    matchToJourneyRow(m, leadByRow.get(m.leadSourceRowIndex)!, apptByKey.get(`${m.appointmentTabGid}:${m.appointmentSourceRowIndex}`)!)
+    matchToJourneyRow(
+      m,
+      leadByRow.get(`${m.leadTabGid}:${m.leadSourceRowIndex}`)!,
+      apptByKey.get(`${m.appointmentTabGid}:${m.appointmentSourceRowIndex}`)!
+    )
   );
   return NextResponse.json({ journey, source: "sheets-live" });
 }

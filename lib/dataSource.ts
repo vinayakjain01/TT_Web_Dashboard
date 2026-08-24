@@ -1,3 +1,4 @@
+import { LEAD_TABS } from "@/config/leadTabs";
 import { OUTCOME_SOURCE_COLUMNS, SHEET2_TABS } from "@/config/sheet2Tabs";
 import { parseAppointmentRow } from "@/lib/business/appointmentParser";
 import { outcomeColumnsResolve } from "@/lib/business/columns";
@@ -8,17 +9,25 @@ import type { ParsedLead, ParsedStoreAppointment } from "@/lib/business/types";
 import { fetchSheetTabCsv } from "@/lib/sheets/fetchSheet";
 
 const LEAD_SPREADSHEET_ID = "1NvXaOurTqKPYpndiIhCfszfB8V_U0iRhhVVa5aBhXgQ";
-const LEAD_TAB_GID = "1816174605";
 const APPOINTMENT_SPREADSHEET_ID = "1Kb7qHzaRTc8KTwqsb8g3GUFtKNd9rbkXV8FsFBAl2rI";
 
 async function fetchParsedLeadsUncached(): Promise<ParsedLead[]> {
-  const rows = await fetchSheetTabCsv(LEAD_SPREADSHEET_ID, LEAD_TAB_GID);
-  const leads: ParsedLead[] = [];
-  rows.slice(1).forEach((row, i) => {
-    const parsed = parseLeadRow(row, i + 1);
-    if (parsed) leads.push(parsed);
-  });
-  return leads;
+  // Fetched in parallel, not one tab at a time - same reasoning as the appointment tabs
+  // below: N tabs sequentially means N times a single tab's latency before anything
+  // comes back, and this is on the hot path for every sync run and every no-Supabase
+  // dashboard load.
+  const perTab = await Promise.all(
+    LEAD_TABS.map(async (tabConfig) => {
+      const rows = await fetchSheetTabCsv(LEAD_SPREADSHEET_ID, tabConfig.gid);
+      const tabLeads: ParsedLead[] = [];
+      rows.slice(1).forEach((row, i) => {
+        const parsed = parseLeadRow(tabConfig, row, i + 1);
+        if (parsed) tabLeads.push(parsed);
+      });
+      return tabLeads;
+    })
+  );
+  return perTab.flat();
 }
 
 async function fetchParsedAppointmentsUncached(): Promise<ParsedStoreAppointment[]> {

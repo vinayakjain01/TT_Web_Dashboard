@@ -1,7 +1,7 @@
-import { parseLeadDate } from "./dates";
+import { parseLeadDateWithTabYear } from "./dates";
 import { toPhoneKey } from "./phone";
 import { isTestRecord } from "./testRecord";
-import type { ParsedLead } from "./types";
+import type { ParsedLead, TabConfig } from "./types";
 
 function clean(v: string | undefined): string {
   return (v ?? "").trim();
@@ -15,19 +15,20 @@ function parseAmount(raw: string): number | null {
 }
 
 /**
- * Spreadsheet 1 has one stable column layout for its single in-scope tab, confirmed by
- * direct inspection - parsed positionally rather than by header name:
+ * Every in-scope lead tab (config/leadTabs.ts) shares this same stable column layout,
+ * confirmed by direct inspection - parsed positionally rather than by header name:
  * [0] unlabeled index/divider marker, [1] Date, [2] Customer Name, [3] Source,
  * [4] Country, [5] Phone Number, [6] Follow-up Date, [7] Status,
  * [8] Potential Order Amount (INR), [9] Sale Amount, [10] Payment Mode,
  * [11] Lead Added by, [12] Lead Converted by, [13] Notes - Reason For Refusal,
  * [14] Brand, [15] Sales Target, [16] City, [17] Product Category.
+ * If a newly-added tab's layout differs, this needs updating - don't assume.
  *
  * Rows where both Date and Customer Name are blank are the interspersed month-header
  * divider rows (the marker text actually lives in column [0], not the Date column) -
  * these are filtered out entirely and this function returns null for them.
  */
-export function parseLeadRow(row: string[], sourceRowIndex: number): ParsedLead | null {
+export function parseLeadRow(tabConfig: TabConfig, row: string[], sourceRowIndex: number): ParsedLead | null {
   const dateRaw = clean(row[1]);
   const customerName = clean(row[2]);
 
@@ -41,16 +42,18 @@ export function parseLeadRow(row: string[], sourceRowIndex: number): ParsedLead 
   const followUpDateRaw = clean(row[6]);
 
   return {
+    tabGid: tabConfig.gid,
+    tabTitle: tabConfig.title,
     sourceRowIndex,
     dateRaw,
-    date: parseLeadDate(dateRaw),
+    date: parseLeadDateWithTabYear(dateRaw, tabConfig.year, tabConfig.monthIndex),
     customerName,
     source: clean(row[3]),
     country: clean(row[4]),
     phoneRaw,
     phoneKey: phoneRaw ? toPhoneKey(phoneRaw) : null,
     followUpDateRaw,
-    followUpDate: followUpDateRaw ? parseLeadDate(followUpDateRaw) : null,
+    followUpDate: followUpDateRaw ? parseLeadDateWithTabYear(followUpDateRaw, tabConfig.year, tabConfig.monthIndex) : null,
     status,
     isConverted: statusLower.includes("converted"),
     isStoreAppointment: statusLower === "store appointment",

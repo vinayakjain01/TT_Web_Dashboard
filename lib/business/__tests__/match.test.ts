@@ -4,6 +4,7 @@ import type { ParsedLead, ParsedStoreAppointment } from "../types";
 
 function lead(overrides: Partial<ParsedLead>): ParsedLead {
   return {
+    tabGid: "lg", tabTitle: "Lead Tab",
     sourceRowIndex: 1, dateRaw: "", date: null, customerName: "", source: "", country: "",
     phoneRaw: "", phoneKey: null, followUpDateRaw: "", followUpDate: null, status: "",
     isConverted: false, isStoreAppointment: false, potentialOrderAmount: null, saleAmount: null,

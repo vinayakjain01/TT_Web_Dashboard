@@ -67,6 +67,7 @@ async function main() {
         await tx`insert into store_appointments ${tx(batch, ...APPOINTMENT_COLUMNS)}`;
       }
       const matchRows = matches.map((m) => ({
+        lead_tab_gid: m.leadTabGid,
         lead_source_row_index: m.leadSourceRowIndex,
         appointment_tab_gid: m.appointmentTabGid,
         appointment_source_row_index: m.appointmentSourceRowIndex,
@@ -75,6 +76,7 @@ async function main() {
       for (const batch of chunk(matchRows, BATCH_SIZE)) {
         await tx`insert into lead_appointment_matches ${tx(
           batch,
+          "lead_tab_gid",
           "lead_source_row_index",
           "appointment_tab_gid",
           "appointment_source_row_index",

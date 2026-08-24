@@ -141,16 +141,19 @@ export function flexibleDateToIso(d: FlexibleDate, fallbackYear: number): string
 }
 
 /**
- * Lead-sheet dates always carry an explicit year in practice. Parses and returns
- * an ISO date, or null if the raw text isn't a resolvable single date.
+ * Parses a lead-sheet date and resolves its year. An explicit year in the raw text
+ * always wins; a tab whose own dates never write down a year at all (e.g. "TT AUGUST":
+ * every cell reads "1 Aug", "23 Aug" - confirmed against the sheet's underlying date
+ * value via the gviz endpoint, which resolves "1 Aug" in that tab to 2026) falls back to
+ * the tab's own year context via pickClosestYear, the same mechanism
+ * resolveVisitDate/resolveBookingDate already use for appointment tabs, rather than
+ * giving up. Returns null if the raw text isn't a resolvable single date.
  */
-export function parseLeadDate(raw: string): string | null {
+export function parseLeadDateWithTabYear(raw: string, tabYear: number, tabMonthIndex: number): string | null {
   const parsed = parseFlexibleDate(raw);
   if (!parsed) return null;
-  // If the sheet ever omits a year, we have no tab-title anchor to fall back on here -
-  // rather than silently assuming "this year", surface it as unparseable.
-  if (parsed.year === null) return null;
-  return flexibleDateToIso(parsed, parsed.year);
+  const year = parsed.year ?? pickClosestYear(parsed.monthIndex, tabYear, tabMonthIndex);
+  return flexibleDateToIso(parsed, year);
 }
 
 export type DateReviewReasonCode =
@@ -168,7 +171,7 @@ function classifyUnparseableReason(raw: string): "unparseable_raw_value" | "no_m
 
 /** Of the tab's own year and its two neighbors, picks whichever keeps monthIndex closest
  * (in real elapsed months, not calendar-year-blind) to the tab's own month. */
-function pickClosestYear(monthIndex: number, tabYear: number, tabMonthIndex: number): number {
+export function pickClosestYear(monthIndex: number, tabYear: number, tabMonthIndex: number): number {
   const candidates = [-1, 0, 1].map((yearOffset) => ({
     year: tabYear + yearOffset,
     distance: Math.abs(monthIndex - tabMonthIndex + yearOffset * 12),
