@@ -21,11 +21,29 @@ describe("resolveVisitDate (rule 2)", () => {
     expect(res.iso).toBe("2025-12-15"); // Dec 2025 is 4 months away vs Dec 2026's 8 months
   });
 
-  it("flags a bare day-number with no month component for review", () => {
-    const res = resolveVisitDate("1", 2026, 7);
-    expect(res.iso).toBeNull();
-    expect(res.needsReview).toBe(true);
-    expect(res.reason).toBe("no_month_component");
+  describe("bare day number, no month at all (new rule) - August 2026 tab writes just the day", () => {
+    it("'1' resolves to day 1 of the tab's own month/year, not flagged for review", () => {
+      // Real row shape from the August 2026 store-appointments tab: "Date of visit" cells
+      // read just "1", "2", "3"... - the team stopped writing the month since everyone
+      // already knows which tab they're in. Previously this fell through to
+      // needsReview=true/no_month_component, which meant every one of these rows had a
+      // null date_of_visit and silently dropped out of any Visit From/To filter.
+      const res = resolveVisitDate("1", 2026, 7); // tab August 2026
+      expect(res.iso).toBe("2026-08-01");
+      expect(res.needsReview).toBe(false);
+      expect(res.yearWasExplicit).toBe(false);
+      expect(res.precision).toBe("exact");
+    });
+
+    it("'23' resolves to day 23", () => {
+      const res = resolveVisitDate("23", 2026, 7);
+      expect(res.iso).toBe("2026-08-23");
+    });
+
+    it("out-of-range numbers ('32', '0') are still not a valid day and stay flagged for review", () => {
+      expect(resolveVisitDate("32", 2026, 7).needsReview).toBe(true);
+      expect(resolveVisitDate("0", 2026, 7).needsReview).toBe(true);
+    });
   });
 
   it("flags relative/non-date text like '1 week' (no month named) for review", () => {

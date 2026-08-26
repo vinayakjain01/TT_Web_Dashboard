@@ -107,6 +107,20 @@ function detectVagueMonthWeek(raw: string): { monthIndex: number; year: number |
   return { monthIndex, year };
 }
 
+/**
+ * Detects a "date of visit" written as just a bare day number ("1", "2", "23") with no
+ * month or year at all - real rows from the August 2026 store-appointments tab, where
+ * the team stopped writing the month since everyone filling in that tab already knows
+ * which month it is. Unlike every other case in this file, which only ever borrows the
+ * YEAR from the tab's own context, a bare day number has to borrow the MONTH too - the
+ * caller supplies both.
+ */
+function detectBareDayNumber(raw: string): number | null {
+  if (!/^\d{1,2}$/.test(raw)) return null;
+  const n = parseInt(raw, 10);
+  return n >= 1 && n <= 31 ? n : null;
+}
+
 export interface DateRangeFirst {
   day: number;
   monthIndex: number;
@@ -199,11 +213,13 @@ export interface VisitDateResolution {
  * tab's own month - this is what makes a "tab is April 2026, visit reads 15 Dec" case
  * resolve to December 2025, not 2026.
  *
- * Also handles three patterns found in later batches of tabs, layered on top of the
+ * Also handles four patterns found in later batches of tabs, layered on top of the
  * above (never replacing it): vague "<month> <n>th week" dates default to the 1st of
  * that month and are flagged approximate; date ranges use their first date as the
  * primary value and keep the full range text in visitDateNote; time-of-day text mixed
- * into the cell is stripped before any of this runs.
+ * into the cell is stripped before any of this runs; a bare day number with no month at
+ * all ("1", "23" - the August 2026 tab's shorthand) borrows the tab's own month too, not
+ * just its year.
  */
 export function resolveVisitDate(raw: string, tabYear: number, tabMonthIndex: number): VisitDateResolution {
   const trimmed = (raw ?? "").trim();
@@ -234,6 +250,18 @@ export function resolveVisitDate(raw: string, tabYear: number, tabMonthIndex: nu
       reason: null,
       yearWasExplicit: range.year !== null,
       visitDateNote: range.rawRange,
+      precision: "exact",
+    };
+  }
+
+  const bareDay = detectBareDayNumber(timeStripped);
+  if (bareDay !== null) {
+    return {
+      iso: flexibleDateToIso({ day: bareDay, monthIndex: tabMonthIndex, year: tabYear }, tabYear),
+      needsReview: false,
+      reason: null,
+      yearWasExplicit: false,
+      visitDateNote: null,
       precision: "exact",
     };
   }
