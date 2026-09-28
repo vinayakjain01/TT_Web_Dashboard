@@ -26,4 +26,5 @@ import type { TabConfig } from "@/lib/business/types";
 export const LEAD_TABS: TabConfig[] = [
   { gid: "1816174605", title: "Tarun Tahiliani", year: 2025, monthIndex: 0 },
   { gid: "847399955", title: "TT AUGUST", year: 2026, monthIndex: 7 },
+  { gid: "1317353555", title: "TT September", year: 2026, monthIndex: 8 },
 ];

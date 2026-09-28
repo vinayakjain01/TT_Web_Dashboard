@@ -37,6 +37,7 @@ export const SHEET2_TABS: TabConfig[] = [
   { gid: "872360029", title: "June 2026", year: 2026, monthIndex: 5 },
   { gid: "883251673", title: "July 2026", year: 2026, monthIndex: 6 },
   { gid: "1861370203", title: "August 2026", year: 2026, monthIndex: 7 },
+  { gid: "519881964", title: "September 2026", year: 2026, monthIndex: 8 },
 ];
 
 /**
@@ -91,4 +92,9 @@ export const OUTCOME_SOURCE_COLUMNS: Record<string, string[]> = {
   "872360029": ["Notes", "Notes.1"],
   "883251673": ["Notes", "Notes.1"],
   "1861370203": ["Product detail", "Follow up"],
+  // September 2026: "Follow up Date" holds only an "E-Sent" / "Pending" send-status
+  // flag, not outcome narrative (direct inspection - 90/103 rows populated, all just
+  // that flag); the real outcome text is in "Notes" (98/103 rows populated, and every
+  // row with a review in "Client Reviews by store" also has it in "Notes").
+  "519881964": ["Notes"],
 };
