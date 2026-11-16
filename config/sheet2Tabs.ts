@@ -38,6 +38,10 @@ export const SHEET2_TABS: TabConfig[] = [
   { gid: "883251673", title: "July 2026", year: 2026, monthIndex: 6 },
   { gid: "1861370203", title: "August 2026", year: 2026, monthIndex: 7 },
   { gid: "519881964", title: "September 2026", year: 2026, monthIndex: 8 },
+  // Titles below are inferred from row content (visit dates in Nov / Dec 2026) - the
+  // tab names themselves weren't readable without sheet credentials.
+  { gid: "947054908", title: "November 2026", year: 2026, monthIndex: 10 },
+  { gid: "1470165398", title: "December 2026", year: 2026, monthIndex: 11 },
 ];
 
 /**
@@ -97,4 +101,8 @@ export const OUTCOME_SOURCE_COLUMNS: Record<string, string[]> = {
   // that flag); the real outcome text is in "Notes" (98/103 rows populated, and every
   // row with a review in "Client Reviews by store" also has it in "Notes").
   "519881964": ["Notes"],
+  // November / December 2026: "Follow up Date" is only an "E sent"/"Pending" flag (or
+  // empty) and "Product detail" is empty; outcome narrative is in "Notes".
+  "947054908": ["Notes"],
+  "1470165398": ["Notes"],
 };
